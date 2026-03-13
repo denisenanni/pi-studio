@@ -472,3 +472,113 @@ kbd {
   flex-wrap: wrap;
   gap: 12px;
 }
+
+/* ── Mobile ───────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+
+  /* Topbar: scrollable tabs with right-edge fade */
+  .topbar {
+    gap: 8px;
+    padding: 0 10px;
+  }
+
+  .topbar-title {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+
+  .topbar-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex-shrink: 1;
+    min-width: 0;
+    mask-image: linear-gradient(to right, black 75%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black 75%, transparent 100%);
+  }
+
+  .topbar-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .topbar-spacer {
+    display: none;
+  }
+
+  .search-input {
+    width: 90px;
+    flex-shrink: 0;
+  }
+
+  /* Chords/Scales controls: each row full-width and scrollable */
+  .scales-controls {
+    gap: 6px;
+  }
+
+  .scales-control-group {
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+    mask-image: linear-gradient(to right, black 85%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+  }
+
+  .scales-control-group::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scales-control-label {
+    flex-shrink: 0;
+  }
+
+  .pill {
+    flex-shrink: 0;
+  }
+
+  /* Bottom panel: horizontally scrollable, no shortcuts or copy */
+  .bottom-panel {
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+    gap: 16px;
+    padding: 10px 12px;
+  }
+
+  .bottom-panel::-webkit-scrollbar {
+    display: none;
+  }
+
+  .shortcuts {
+    display: none;
+  }
+
+  .copy-btn {
+    display: none;
+  }
+
+  .snippet-area {
+    margin-left: 0;
+    flex-shrink: 0;
+  }
+
+  /* FX tab bottom panel: same treatment */
+  .fx-bottom-panel {
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+  }
+
+  .fx-bottom-panel::-webkit-scrollbar {
+    display: none;
+  }
+
+  .fx-controls {
+    flex-wrap: nowrap;
+  }
+
+  .control-group {
+    flex-shrink: 0;
+  }
+}

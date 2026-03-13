@@ -3,6 +3,7 @@ import { Synth, start as toneStart } from 'tone'
 
 export interface ScalePlayerControls {
   play: () => Promise<void>
+  playOnLoad: () => void
   stop: () => void
   isPlaying: boolean
 }
@@ -31,6 +32,13 @@ function buildNotes(steps: number[], rootNote: string, octave: number): string[]
   return notes
 }
 
+// Always-current refs so play logic sees the latest props even in callbacks.
+function useLatestRef<T>(value: T) {
+  const ref = useRef(value)
+  ref.current = value
+  return ref
+}
+
 export function useScalePlayer(
   steps: number[],
   rootNote: string,
@@ -39,11 +47,16 @@ export function useScalePlayer(
 ): ScalePlayerControls {
   const synthRef = useRef<Synth | null>(null)
   const timeoutsRef = useRef<number[]>([])
-  const ampRef = useRef(amp)
-  ampRef.current = amp
+  const pendingPlayRef = useRef(false)
+
+  const stepsRef = useLatestRef(steps)
+  const rootNoteRef = useLatestRef(rootNote)
+  const octaveRef = useLatestRef(octave)
+  const ampRef = useLatestRef(amp)
 
   const [isPlaying, setIsPlaying] = useState(false)
 
+  // Create synth once on mount.
   useEffect(() => {
     const synth = new Synth({
       oscillator: { type: 'triangle' },
@@ -59,27 +72,55 @@ export function useScalePlayer(
     }
   }, [])
 
+  // Fires whenever `steps` changes (i.e. a new scale is selected).
+  // If playOnLoad() was called first, auto-play immediately.
+  useEffect(() => {
+    if (!pendingPlayRef.current || steps.length === 0) return
+    pendingPlayRef.current = false
+
+    const synth = synthRef.current
+    if (!synth) return
+
+    timeoutsRef.current.forEach(clearTimeout)
+    timeoutsRef.current = []
+    synth.triggerRelease()
+
+    const doPlay = async () => {
+      await toneStart()
+      const notes = buildNotes(steps, rootNoteRef.current, octaveRef.current)
+      synth.volume.value = ampRef.current === 0 ? -Infinity : 20 * Math.log10(ampRef.current)
+      setIsPlaying(true)
+      notes.forEach((note, i) => {
+        const id = window.setTimeout(() => {
+          synth.triggerAttackRelease(note, 0.15)
+          if (i === notes.length - 1) {
+            const doneId = window.setTimeout(() => setIsPlaying(false), 700)
+            timeoutsRef.current.push(doneId)
+          }
+        }, i * 200)
+        timeoutsRef.current.push(id)
+      })
+    }
+    void doPlay()
+  }, [steps]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const play = async (): Promise<void> => {
     const synth = synthRef.current
     if (!synth) return
 
-    // Cancel any in-progress playback.
     timeoutsRef.current.forEach(clearTimeout)
     timeoutsRef.current = []
     synth.triggerRelease()
 
     await toneStart()
-
-    const notes = buildNotes(steps, rootNote, octave)
+    const notes = buildNotes(stepsRef.current, rootNoteRef.current, octaveRef.current)
     synth.volume.value = ampRef.current === 0 ? -Infinity : 20 * Math.log10(ampRef.current)
-
     setIsPlaying(true)
 
     notes.forEach((note, i) => {
       const id = window.setTimeout(() => {
         synth.triggerAttackRelease(note, 0.15)
         if (i === notes.length - 1) {
-          // Give the last note time to release before clearing the flag.
           const doneId = window.setTimeout(() => setIsPlaying(false), 700)
           timeoutsRef.current.push(doneId)
         }
@@ -88,12 +129,18 @@ export function useScalePlayer(
     })
   }
 
+  // Queue autoplay for when the next steps update arrives (new scale selected).
+  const playOnLoad = (): void => {
+    pendingPlayRef.current = true
+  }
+
   const stop = (): void => {
+    pendingPlayRef.current = false
     timeoutsRef.current.forEach(clearTimeout)
     timeoutsRef.current = []
     synthRef.current?.triggerRelease()
     setIsPlaying(false)
   }
 
-  return { play, stop, isPlaying }
+  return { play, playOnLoad, stop, isPlaying }
 }

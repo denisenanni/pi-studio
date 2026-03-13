@@ -57,7 +57,7 @@ function App() {
     return SCALES.find((s) => s.name === state.selectedScale)?.steps ?? []
   }, [state.selectedScale])
 
-  const { play: scalePlay, stop: scaleStop, isPlaying: scalePlaying } =
+  const { play: scalePlay, playOnLoad: scalePlayOnLoad, stop: scaleStop, isPlaying: scalePlaying } =
     useScalePlayer(selectedScaleSteps, state.scaleRootNote, state.scaleOctave, state.scaleAmp)
 
   // ── Derived data ────────────────────────────────────────
@@ -102,12 +102,11 @@ function App() {
         if (scalePlaying) scaleStop()
         else scalePlay()
       } else {
+        scalePlayOnLoad()
         setState((s) => ({ ...s, selectedScale: name }))
-        // Synth is always ready — play immediately after state updates.
-        // We rely on the next render cycle; scalePlay will pick up the new steps.
       }
     },
-    [state.selectedScale, scalePlaying, scalePlay, scaleStop],
+    [state.selectedScale, scalePlaying, scalePlay, scalePlayOnLoad, scaleStop],
   )
 
   const handleCategoryChange = useCallback((category: SampleCategory) => {
@@ -183,17 +182,6 @@ function App() {
     samplePlay, sampleStop, scalePlay, scaleStop,
     handleCopy,
   ])
-
-  // ── Scales: play when selectedScale changes via click ───
-  // We use a ref to distinguish "navigated by click" from "arrow key nav".
-  // Since clicking calls handleScaleClick which already decides to play,
-  // and arrow keys only update state (no play), we trigger play via
-  // an effect that watches selectedScale when a pendingPlay flag is set.
-  // Simpler approach: just fire play() after setState in handleScaleClick
-  // using a useEffect that runs once after selectedScale updates.
-  // This is implemented by checking if the click was on a new scale.
-  // For now, double-clicking the same scale plays; single click on new one
-  // requires a second Space press — acceptable for MVP.
 
   const isSamplesTab = state.activeTab === 'samples'
 

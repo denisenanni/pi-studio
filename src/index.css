@@ -546,6 +546,337 @@ kbd {
   to { transform: rotate(360deg); }
 }
 
+/* ── Tools Tab ────────────────────────────────────────────── */
+
+.tools-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tools-subtab-bar {
+  display: flex;
+  gap: 6px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.tools-subtab-pill {
+  font-family: monospace;
+  font-size: 11px;
+  padding: 3px 12px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.tools-subtab-pill.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
+
+.tools-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+}
+
+.tools-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 680px;
+}
+
+/* Mode toggle */
+.tools-mode-toggle {
+  display: flex;
+  gap: 6px;
+}
+
+/* Generic pill (used in BPM + Note Reference) */
+.tools-pill {
+  font-family: monospace;
+  font-size: 11px;
+  padding: 2px 9px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tools-pill.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
+
+.tools-pill-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Field rows */
+.tools-field-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tools-field-wrap {
+  flex-wrap: wrap;
+}
+
+.tools-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.tools-number-input {
+  font-family: monospace;
+  font-size: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 3px 8px;
+  border-radius: 3px;
+  width: 80px;
+  outline: none;
+}
+
+.tools-number-input:focus {
+  border-color: var(--accent-border);
+}
+
+.tools-custom-beats {
+  width: 72px;
+}
+
+/* Output block */
+.tools-output-block {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tools-output-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.tools-output-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  min-width: 90px;
+}
+
+.tools-output-big {
+  font-size: 22px;
+  color: var(--accent);
+  letter-spacing: 0.03em;
+}
+
+.tools-output-val {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.tools-snippet-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.tools-snippet {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--text);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 6px 10px;
+  white-space: pre;
+  flex: 1;
+}
+
+.tools-copy-btn {
+  font-family: monospace;
+  font-size: 10px;
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tools-copy-btn:hover {
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+/* Reference table */
+.tools-ref-table-wrapper {
+  margin-top: 4px;
+}
+
+.tools-ref-title {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.tools-ref-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.tools-ref-table th {
+  color: var(--text-dim);
+  text-align: left;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+  font-weight: normal;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+.tools-ref-table td {
+  padding: 4px 10px;
+  border-bottom: 1px solid #1e1e1e;
+  color: var(--text);
+}
+
+.tools-ref-table tr:hover td {
+  background: var(--bg-surface);
+}
+
+/* Note Reference */
+.tools-note-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.tools-note-search {
+  font-family: monospace;
+  font-size: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 10px;
+  border-radius: 3px;
+  width: 220px;
+  outline: none;
+}
+
+.tools-note-search:focus {
+  border-color: var(--accent-border);
+}
+
+.tools-note-table-wrapper {
+  overflow-x: auto;
+}
+
+.tools-note-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.tools-note-table th {
+  color: var(--text-dim);
+  text-align: left;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+  font-weight: normal;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.tools-note-table td {
+  padding: 4px 10px;
+  border-bottom: 1px solid #1e1e1e;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.tools-note-row {
+  cursor: pointer;
+}
+
+.tools-note-row:hover td {
+  background: var(--bg-surface);
+}
+
+.tools-note-row.highlighted td {
+  background: var(--accent-bg);
+}
+
+.tools-note-name {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.tools-note-alias {
+  color: var(--text-dim);
+}
+
+.tools-copy-row {
+  padding: 1px 7px;
+  font-size: 10px;
+}
+
+.tools-note-empty {
+  color: var(--text-dim);
+  padding: 12px 10px;
+  text-align: center;
+}
+
+.tools-note-info {
+  padding: 10px 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--accent-border);
+  border-radius: 4px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.tools-note-alias-inline {
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.tools-note-detail {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
 /* ── Mobile ───────────────────────────────────────────────── */
 
 @media (max-width: 640px) {

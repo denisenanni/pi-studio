@@ -219,3 +219,46 @@
 - `src/index.css` — Added `.synths-tab`, `.synth-cell`, `.synths-banner` (loading/error variants), `.synths-banner-dot` (pulse animation), `.synth-spinner` (spin animation) styles.
 
 **Build:** `yarn build` + `tsc --noEmit` pass with zero TypeScript errors.
+
+---
+
+## Task 09 — Tools Tab (BPM Calculator + Note Reference)
+
+### Plan
+
+- [x] 1. Update `src/types.ts` — add `'tools'` to `ActiveTab`
+- [x] 2. Update `src/components/Topbar.tsx` — add Tools tab after Synths; hide search input on Tools tab (pass `hideSearch` prop)
+- [x] 3. Create `src/components/ToolsTab.tsx` — self-contained tab with:
+  - Sub-tab pill switcher: `BPM Calculator | Note Reference` (state lives inside this component)
+  - **BPM Calculator section:**
+    - Mode toggle pill: `BPM → Sleep` (default) / `Sleep → Duration`
+    - Mode A inputs: BPM number input + Duration pill buttons (1/16, 1/8, 1/4, 1/3, 1/2, 2/3, 3/4, 1, 2, 3, 4) + custom numeric input
+    - Mode A outputs: sleep value (large), duration in seconds, code snippet, copy button
+    - Mode B inputs: BPM + Sleep value number input
+    - Mode B outputs: seconds, nearest rhythmic value label, code snippet, copy button
+    - Reference table at the bottom: all durations × current BPM, updates live
+  - **Note Reference section:**
+    - Search bar (note name, MIDI number, or frequency)
+    - Octave selector pills (0–8)
+    - Note table (MIDI 0–127): Note | Alias | MIDI | Frequency | Code | Copy
+    - Default view: octave 4 (MIDI 48–71)
+    - Note names generated programmatically to match Sonic Pi naming exactly
+- [x] 4. Update `src/App.tsx` — add `'tools'` to conditional rendering; hide BottomPanel on tools tab; extend `handleSearchChange` (no-op for tools); extend `handleTabChange` (no stop needed — no audio)
+- [x] 5. Add Tools tab CSS to `src/index.css`
+- [x] 6. Verify build passes with no TypeScript errors (`yarn build`)
+
+### Review
+
+**Files created/modified:**
+
+- `src/types.ts` — `ActiveTab` now includes `'tools'`.
+- `src/components/Topbar.tsx` — Tools tab button added after Synths. Added optional `hideSearch` prop; when true the search input is not rendered (Tools tab has its own search in Note Reference).
+- `src/components/ToolsTab.tsx` — New self-contained component (no props from App). All state is local. Three internal components:
+  - `ToolsTab` — manages `subTab` (bpm|notes) and shared `bpm` state; renders sub-tab pill bar.
+  - `BpmCalculator` — owns mode, selected duration, custom beats, and sleep-input state. Mode A computes `sleep = (beats × 60) / BPM` and the seconds equivalent; Mode B inverts it and finds the nearest rhythmic value by minimum absolute beat-distance. Reference table iterates all 11 rhythmic values and updates live. Both modes produce a copyable code snippet.
+  - `NoteReference` — builds `ALL_NOTES` (MIDI 0–127) once at module load. Octave pills filter to 12 rows; search filters by name, alias, MIDI number, or frequency string. Clicking a row highlights it and shows a bottom info bar. Each row has an independent copy button.
+  - Note naming matches Sonic Pi exactly: sharps use `cs/ds/fs/gs/as`, flats are shown as aliases (`db/eb/gb/ab/bb`), MIDI 60 = `:c4`.
+- `src/App.tsx` — Added `isToolsTab` flag; `<ToolsTab />` added to the render chain; `BottomPanel` hidden on tools tab; `Topbar` receives `hideSearch={isToolsTab}`.
+- `src/index.css` — ~220 lines of new Tools tab styles added before the mobile breakpoint block.
+
+**Build:** `yarn build` passes with zero TypeScript errors.

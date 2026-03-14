@@ -23,6 +23,7 @@ import { ScalesTab } from './components/ScalesTab'
 import { ChordsTab } from './components/ChordsTab'
 import { FxTab } from './components/FxTab'
 import { SynthsTab } from './components/SynthsTab'
+import { ToolsTab } from './components/ToolsTab'
 import { BottomPanel } from './components/BottomPanel'
 
 interface AppState {
@@ -604,6 +605,7 @@ function App() {
   const isChordsTab = state.activeTab === 'chords'
   const isFxTab = state.activeTab === 'fx'
   const isSynthsTab = state.activeTab === 'synths'
+  const isToolsTab = state.activeTab === 'tools'
 
   const activeSearch = isSamplesTab
     ? state.search
@@ -650,6 +652,7 @@ function App() {
         onTabChange={handleTabChange}
         search={activeSearch}
         onSearchChange={handleSearchChange}
+        hideSearch={isToolsTab}
       />
 
       <div className="main">
@@ -716,6 +719,8 @@ function App() {
             onOctaveChange={handleSynthOctaveChange}
             onCopy={handleCopy}
           />
+        ) : isToolsTab ? (
+          <ToolsTab />
         ) : (
           <ScalesTab
             scales={filteredScales}
@@ -730,7 +735,7 @@ function App() {
         )}
       </div>
 
-      {!isFxTab && !isSynthsTab && (
+      {!isFxTab && !isSynthsTab && !isToolsTab && (
         <BottomPanel
           showRate={isSamplesTab}
           rate={state.rate}

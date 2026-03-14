@@ -5,9 +5,10 @@ interface TopbarProps {
   onTabChange: (tab: ActiveTab) => void
   search: string
   onSearchChange: (value: string) => void
+  hideSearch?: boolean
 }
 
-export function Topbar({ activeTab, onTabChange, search, onSearchChange }: TopbarProps) {
+export function Topbar({ activeTab, onTabChange, search, onSearchChange, hideSearch = false }: TopbarProps) {
   return (
     <div className="topbar">
       <span className="topbar-title">SONIC PI BROWSER</span>
@@ -43,17 +44,25 @@ export function Topbar({ activeTab, onTabChange, search, onSearchChange }: Topba
         >
           Synths
         </button>
+        <button
+          className={`tab${activeTab === 'tools' ? ' active' : ''}`}
+          onClick={() => onTabChange('tools')}
+        >
+          Tools
+        </button>
       </div>
 
       <div className="topbar-spacer" />
 
-      <input
-        className="search-input"
-        type="text"
-        placeholder="search..."
-        value={search}
-        onChange={(e) => onSearchChange(e.target.value)}
-      />
+      {!hideSearch && (
+        <input
+          className="search-input"
+          type="text"
+          placeholder="search..."
+          value={search}
+          onChange={(e) => onSearchChange(e.target.value)}
+        />
+      )}
     </div>
   )
 }

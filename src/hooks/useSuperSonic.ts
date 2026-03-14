@@ -167,7 +167,8 @@ export function useSuperSonic(): {
     ) => {
       if (!sonicInstance) return
 
-      // Stop any previously playing nodes
+      // Stop any previously playing nodes and invalidate any pending 50ms delay
+      _playGeneration++
       sonicInstance.send('/g_freeAll', 0)
       lastNodeIdRef.current = null
 
@@ -206,10 +207,14 @@ export function useSuperSonic(): {
       lastNodeIdRef.current = synthNodeId
       sonicInstance.send('/s_new', synth.supersonicName, synthNodeId, 0, 0, ...synthKvArgs)
 
-      // Delay 50ms so scsynth registers the synth output before FX nodes start
+      // Delay 50ms so scsynth registers the synth output before FX nodes start.
+      // Capture generation before the delay — if stopAll/playWithFx fires during
+      // the wait the generation will have changed and we abort instead of sending
+      // orphan FX nodes into a cleared group.
       if (fxChain.length > 0) {
+        const generation = _playGeneration
         await new Promise<void>((resolve) => setTimeout(resolve, 50))
-        if (!sonicInstance) return
+        if (!sonicInstance || _playGeneration !== generation) return
 
         // Fire each FX node in chain order (addToTail of group 0 — runs after synth)
         for (const entry of fxChain) {
@@ -227,6 +232,7 @@ export function useSuperSonic(): {
 
   const stopAll = useCallback(() => {
     if (!sonicInstance) return
+    _playGeneration++
     sonicInstance.send('/g_freeAll', 0)
     lastNodeIdRef.current = null
   }, [])
@@ -241,3 +247,9 @@ function nextNodeId(): number {
   _nodeId = _nodeId >= 30000 ? 1000 : _nodeId + 1
   return id
 }
+
+// ── Play generation counter ───────────────────────────────────────────────────
+// Incremented on every g_freeAll call. playWithFx captures the generation before
+// its 50ms delay and aborts if it has changed — prevents orphan FX nodes firing
+// into a cleared group after stopAll() or a rapid second playWithFx call.
+let _playGeneration = 0

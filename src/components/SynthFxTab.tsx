@@ -121,7 +121,7 @@ export function SynthFxTab({ engineState, playWithFx, stopAll }: SynthFxTabProps
     return out
   })
   const [chain, setChain] = useState<ChainItem[]>([])
-  const [idCounter, setIdCounter] = useState(0)
+  const idCounterRef = useRef(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -166,14 +166,14 @@ export function SynthFxTab({ engineState, playWithFx, stopAll }: SynthFxTabProps
     if (!firstFx) return
     setChain((prev) => {
       if (prev.length >= MAX_CHAIN) return prev
-      const newId = idCounter
-      setIdCounter((c) => c + 1)
+      // Use a ref so the id is always current — avoids stale closure in the updater
+      const newId = idCounterRef.current++
       return [
         ...prev,
         { id: newId, fxKey: firstFx.key, mix: 1.0, params: defaultFxParams(firstFx) },
       ]
     })
-  }, [idCounter])
+  }, [])
 
   const handleRemoveFx = useCallback((id: number) => {
     setChain((prev) => prev.filter((item) => item.id !== id))
@@ -221,19 +221,19 @@ export function SynthFxTab({ engineState, playWithFx, stopAll }: SynthFxTabProps
       mix: item.mix,
     })).filter((e) => e.supersonicName !== '')
 
-    setIsPlaying(true)
-    void playWithFx(selectedSynth, midiNote, synthParams, fxChainEntries).catch(() => {
-      setIsPlaying(false)
-    })
-
-    // Auto-reset playing indicator after attack + release
+    // Capture timing before the async call so values don't drift
     const attack = synthParams['attack'] ?? 0
     const release = synthParams['release'] ?? 1
-    if (playingTimerRef.current !== null) clearTimeout(playingTimerRef.current)
-    playingTimerRef.current = setTimeout(
-      () => setIsPlaying(false),
-      (attack + release) * 1000 + 200,
-    )
+    const durationMs = (attack + release) * 1000 + 200
+
+    setIsPlaying(true)
+    void playWithFx(selectedSynth, midiNote, synthParams, fxChainEntries).then(() => {
+      // Only set the auto-stop timer after the engine has confirmed the nodes fired
+      if (playingTimerRef.current !== null) clearTimeout(playingTimerRef.current)
+      playingTimerRef.current = setTimeout(() => setIsPlaying(false), durationMs)
+    }).catch(() => {
+      setIsPlaying(false)
+    })
   }, [selectedSynth, engineState.isReady, isPlaying, chain, midiNote, synthParams, playWithFx, stopAll])
 
   const handleCopy = useCallback(() => {

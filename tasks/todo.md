@@ -7,7 +7,7 @@
 ### Plan
 
 - [x] 1. Scaffold Vite + React + TypeScript project with yarn inside `/sonic-browser`
-- [x] 2. Set `base: '/sonic-pi-sample-browser/'` in `vite.config.ts` for GitHub Pages
+- [x] 2. Set `base: '/pi-studio/'` in `vite.config.ts` for GitHub Pages
 - [x] 3. Install Tone.js (check for any equivalent audio library first — none found)
 - [x] 4. Create `src/data/samples.ts` with all sample categories and names typed correctly (no `any`)
 - [x] 5. Create `public/samples/README.txt` explaining where to place WAV files
@@ -20,8 +20,8 @@
 
 **Files created/modified:**
 
-- `vite.config.ts` — added `base: '/sonic-pi-sample-browser/'` so asset paths resolve correctly under the GitHub Pages subdirectory.
-- `package.json` — renamed package to `sonic-pi-sample-browser`, Tone.js added as a dependency.
+- `vite.config.ts` — added `base: '/pi-studio/'` so asset paths resolve correctly under the GitHub Pages subdirectory.
+- `package.json` — renamed package to `pi-studio`, Tone.js added as a dependency.
 - `src/data/samples.ts` — defines `SampleCategory` (union type), `Sample` (name + category), `SampleGroup` (category + samples array), plus `SAMPLE_GROUPS` (165 samples across 14 categories) and a flat `ALL_SAMPLES` export. No `any`.
 - `public/samples/README.txt` — instructions for copying WAV files from the local Sonic Pi install.
 - `.github/workflows/deploy.yml` — builds with `yarn` and publishes `./dist` to GitHub Pages via `peaceiris/actions-gh-pages@v4`.

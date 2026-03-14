@@ -88,12 +88,14 @@ export function useSuperSonic(): {
     })()
   }, [])
 
-  // Sync state if engine was already initialised before this hook instance mounted
+  // Sync state if engine was already initialised before this hook instance mounted.
+  // Empty dep array: this is a mount-only reconciliation — nothing to re-check on re-renders.
   useEffect(() => {
-    if (sonicInstance !== null && !state.isReady) {
+    if (sonicInstance !== null) {
       setState({ isReady: true, isLoading: false, error: null })
     }
-  }, [state.isReady])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const playNote = useCallback(
     async (synth: SynthDefinition, params: Record<string, number>) => {
@@ -116,7 +118,18 @@ export function useSuperSonic(): {
         }
       }
 
-      // Wait until loaded (in case concurrent load is in progress)
+      // If a concurrent load is already in progress for this synthdef, wait for it to finish
+      if (loadingSynthdefsRef.current.has(synth.supersonicName)) {
+        await new Promise<void>((resolve) => {
+          const interval = setInterval(() => {
+            if (!loadingSynthdefsRef.current.has(synth.supersonicName)) {
+              clearInterval(interval)
+              resolve()
+            }
+          }, 50)
+        })
+      }
+
       if (!loadedSynthdefs.has(synth.supersonicName)) return
 
       // Build flat key-value args list from params

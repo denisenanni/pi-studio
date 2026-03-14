@@ -1,56 +1,51 @@
-import { useState, useMemo } from 'react'
-import { SYNTHS } from '../data/synths'
-import type { SynthDefinition, SynthParam } from '../data/synths'
-import type { SuperSonicState } from '../hooks/useSuperSonic'
+import { useState, useMemo, useCallback, useEffect, useRef, memo } from "react";
+import { SYNTHS, NOTE_NAMES, noteToMidi } from "../data/synths";
+import type { SynthDefinition, SynthParam, NoteName } from "../data/synths";
+import type { SuperSonicState } from "../hooks/useSuperSonic";
 
-const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const
-const OCTAVES = [2, 3, 4, 5, 6] as const
-
-function noteToMidi(noteName: string, octave: number): number {
-  const idx = NOTE_NAMES.indexOf(noteName as (typeof NOTE_NAMES)[number])
-  return (octave + 1) * 12 + idx
-}
+const OCTAVES = [2, 3, 4, 5, 6] as const;
 
 function buildSynthSnippet(
   synth: SynthDefinition | null,
   note: number,
-  params: Record<string, number>,
+  params: Record<string, number>
 ): string {
-  if (!synth) return 'no synth selected'
+  if (!synth) return "no synth selected";
   const nonDefault = synth.params
     .filter((p) => {
-      if (p.key === 'note' || p.key === 'amp') return false
-      const val = params[p.key] ?? p.default
-      return Math.abs(val - p.default) >= p.step
+      if (p.key === "note" || p.key === "amp") return false;
+      const val = params[p.key] ?? p.default;
+      return Math.abs(val - p.default) >= p.step;
     })
     .map((p) => {
-      const val = params[p.key] ?? p.default
-      const formatted = p.step < 1 ? val.toFixed(2) : String(Math.round(val))
-      return `${p.key}: ${formatted}`
-    })
+      const val = params[p.key] ?? p.default;
+      const formatted =
+        p.step < 1 ? val.toFixed(2) : String(Math.round(val));
+      return `${p.key}: ${formatted}`;
+    });
 
-  const amp = params['amp'] ?? 1
-  const parts = [`note: ${note}`, `amp: ${amp.toFixed(2)}`, ...nonDefault]
-  return `synth :${synth.name}, ${parts.join(', ')}`
+  const amp = params["amp"] ?? 1;
+  const parts = [`note: ${note}`, `amp: ${amp.toFixed(2)}`, ...nonDefault];
+  return `synth :${synth.name}, ${parts.join(", ")}`;
 }
 
 interface SynthsTabProps {
-  filteredSynths: SynthDefinition[]
-  selectedSynth: string | null
-  engineState: SuperSonicState
-  loadingSynthdef: string | null
-  isPlaying: boolean
-  params: Record<string, number>
-  rootNote: string
-  octave: number
-  onSynthClick: (name: string) => void
-  onParamChange: (key: string, value: number) => void
-  onRootNoteChange: (note: string) => void
-  onOctaveChange: (octave: number) => void
-  onCopy: () => void
+  filteredSynths: SynthDefinition[];
+  selectedSynth: string | null;
+  engineState: SuperSonicState;
+  loadingSynthdef: string | null;
+  isPlaying: boolean;
+  params: Record<string, number>;
+  rootNote: string;
+  octave: number;
+  onSynthClick: (name: string) => void;
+  onParamChange: (key: string, value: number) => void;
+  onRootNoteChange: (note: string) => void;
+  onOctaveChange: (octave: number) => void;
+  onCopy: () => void;
 }
 
-export function SynthsTab({
+export const SynthsTab = memo(function SynthsTab({
   filteredSynths,
   selectedSynth,
   engineState,
@@ -65,27 +60,43 @@ export function SynthsTab({
   onOctaveChange,
   onCopy,
 }: SynthsTabProps) {
-  const [copiedFlash, setCopiedFlash] = useState(false)
+  const [copiedFlash, setCopiedFlash] = useState(false);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear copy timer on unmount
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current !== null) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
 
   const activeSynth = useMemo(
     () => SYNTHS.find((s) => s.name === selectedSynth) ?? null,
-    [selectedSynth],
-  )
+    [selectedSynth]
+  );
 
-  const midiNote = noteToMidi(rootNote, octave)
+  const midiNote = useMemo(
+    () => noteToMidi(rootNote as NoteName, octave),
+    [rootNote, octave]
+  );
 
-  const snippet = buildSynthSnippet(activeSynth, midiNote, params)
+  const snippet = useMemo(
+    () => buildSynthSnippet(activeSynth, midiNote, params),
+    [activeSynth, midiNote, params]
+  );
 
-  // Params rendered in the bottom panel (exclude note — we have note/octave controls)
-  const bottomParams: SynthParam[] = activeSynth
-    ? activeSynth.params.filter((p) => p.key !== 'note')
-    : []
+  // Params for the bottom panel — exclude note (handled by note/octave controls)
+  const bottomParams = useMemo<SynthParam[]>(
+    () => (activeSynth ? activeSynth.params.filter((p) => p.key !== "note") : []),
+    [activeSynth]
+  );
 
-  const handleCopy = () => {
-    onCopy()
-    setCopiedFlash(true)
-    setTimeout(() => setCopiedFlash(false), 800)
-  }
+  const handleCopy = useCallback(() => {
+    onCopy();
+    setCopiedFlash(true);
+    if (copyTimerRef.current !== null) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopiedFlash(false), 800);
+  }, [onCopy]);
 
   return (
     <div className="fx-tab synths-tab">
@@ -111,7 +122,7 @@ export function SynthsTab({
             {NOTE_NAMES.map((n) => (
               <button
                 key={n}
-                className={`pill${rootNote === n ? ' active' : ''}`}
+                className={`pill${rootNote === n ? " active" : ""}`}
                 onClick={() => onRootNoteChange(n)}
               >
                 {n}
@@ -124,7 +135,7 @@ export function SynthsTab({
             {OCTAVES.map((o) => (
               <button
                 key={o}
-                className={`pill${octave === o ? ' active' : ''}`}
+                className={`pill${octave === o ? " active" : ""}`}
                 onClick={() => onOctaveChange(o)}
               >
                 {o}
@@ -138,12 +149,12 @@ export function SynthsTab({
       <div className="grid-container fx-grid-container">
         <div className="sample-grid">
           {filteredSynths.map((synth) => {
-            const isSelected = synth.name === selectedSynth
-            const isLoadingThis = loadingSynthdef === synth.name
+            const isSelected = synth.name === selectedSynth;
+            const isLoadingThis = loadingSynthdef === synth.name;
             return (
               <div
                 key={synth.name}
-                className={`sample-cell fx-cell synth-cell${isSelected ? ' selected' : ''}${isSelected && isPlaying ? ' playing' : ''}`}
+                className={`sample-cell fx-cell synth-cell${isSelected ? " selected" : ""}${isSelected && isPlaying ? " playing" : ""}`}
                 onClick={() => onSynthClick(synth.name)}
                 title={synth.doc}
               >
@@ -153,7 +164,7 @@ export function SynthsTab({
                 </div>
                 {isLoadingThis && <span className="synth-spinner" />}
               </div>
-            )
+            );
           })}
         </div>
       </div>
@@ -180,13 +191,19 @@ export function SynthsTab({
         </div>
 
         <div className="shortcuts">
-          <span className="shortcut"><kbd>Space</kbd> play/stop</span>
-          <span className="shortcut"><kbd>↑↓←→</kbd> navigate</span>
-          <span className="shortcut"><kbd>C</kbd> copy</span>
+          <span className="shortcut">
+            <kbd>Space</kbd> play/stop
+          </span>
+          <span className="shortcut">
+            <kbd>↑↓←→</kbd> navigate
+          </span>
+          <span className="shortcut">
+            <kbd>C</kbd> copy
+          </span>
         </div>
 
         <div className="snippet-area">
-          <code className={`snippet-code${selectedSynth ? ' has-sample' : ''}`}>
+          <code className={`snippet-code${selectedSynth ? " has-sample" : ""}`}>
             {snippet}
           </code>
           <button
@@ -194,10 +211,10 @@ export function SynthsTab({
             onClick={handleCopy}
             disabled={!selectedSynth}
           >
-            {copiedFlash ? 'copied!' : 'copy'}
+            {copiedFlash ? "copied!" : "copy"}
           </button>
         </div>
       </div>
     </div>
-  )
-}
+  );
+});

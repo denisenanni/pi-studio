@@ -14,8 +14,8 @@ import { CHORDS } from './data/chords'
 import type { Chord } from './data/chords'
 import { FX_LIST, FX_PREVIEW_SAMPLES } from './data/fx'
 import type { FxDefinition } from './data/fx'
-import { SYNTHS } from './data/synths'
-import type { SynthDefinition } from './data/synths'
+import { SYNTHS, noteToMidi } from './data/synths'
+import type { NoteName } from './data/synths'
 import { Topbar } from './components/Topbar'
 import { Sidebar } from './components/Sidebar'
 import { SampleGrid } from './components/SampleGrid'
@@ -171,6 +171,7 @@ function App() {
 
   const [loadingSynthdef, setLoadingSynthdef] = useState<string | null>(null)
   const [synthIsPlaying, setSynthIsPlaying] = useState(false)
+  const synthPlayingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Stop FX playback and synths when switching away from those tabs
   const prevTabRef = useRef(state.activeTab)
@@ -183,6 +184,10 @@ function App() {
     if (prev === 'synths' && next !== 'synths') {
       stopAll()
       setSynthIsPlaying(false)
+      if (synthPlayingTimerRef.current !== null) {
+        clearTimeout(synthPlayingTimerRef.current)
+        synthPlayingTimerRef.current = null
+      }
     }
     // Init engine lazily when entering Synths tab for the first time
     if (next === 'synths' && !synthEngineState.isReady && !synthEngineState.isLoading && !synthEngineState.error) {
@@ -237,11 +242,10 @@ function App() {
 
   const fxSnippet = buildFxSnippet(state.selectedFx, state.fxSample, state.fxParams)
 
-  const synthMidiNote = useMemo(() => {
-    const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const
-    const idx = NOTE_NAMES.indexOf(state.synthRootNote as (typeof NOTE_NAMES)[number])
-    return (state.synthOctave + 1) * 12 + idx
-  }, [state.synthRootNote, state.synthOctave])
+  const synthMidiNote = useMemo(
+    () => noteToMidi(state.synthRootNote as NoteName, state.synthOctave),
+    [state.synthRootNote, state.synthOctave],
+  )
 
   const synthSnippet = useMemo(() => {
     const synth = SYNTHS.find((s) => s.name === state.selectedSynth)
@@ -416,31 +420,40 @@ function App() {
       const synth = SYNTHS.find((s) => s.name === name)
       if (!synth) return
 
-      setState((s) => {
-        // Build default params for newly selected synth
-        const newParams: Record<string, number> = {}
-        for (const p of synth.params) {
-          newParams[p.key] = s.synthParams[p.key] ?? p.default
-        }
-        // Inject current note
-        newParams['note'] = (s.synthOctave + 1) * 12 +
-          ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].indexOf(s.synthRootNote)
-        return { ...s, selectedSynth: name, synthParams: newParams }
-      })
-
-      // Play after state update
-      setLoadingSynthdef(name)
-      const currentState = { ...state, selectedSynth: name }
-      const noteIdx = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].indexOf(currentState.synthRootNote)
-      const midiNote = (currentState.synthOctave + 1) * 12 + noteIdx
+      // Build play params from current state (state is in deps — always current)
+      const midiNote = noteToMidi(state.synthRootNote as NoteName, state.synthOctave)
       const playParams: Record<string, number> = { note: midiNote }
       for (const p of synth.params) {
         if (p.key !== 'note') playParams[p.key] = state.synthParams[p.key] ?? p.default
       }
 
+      // Update React state atomically
+      setState((s) => {
+        const note = noteToMidi(s.synthRootNote as NoteName, s.synthOctave)
+        const newParams: Record<string, number> = {}
+        for (const p of synth.params) {
+          newParams[p.key] = s.synthParams[p.key] ?? p.default
+        }
+        newParams['note'] = note
+        return { ...s, selectedSynth: name, synthParams: newParams }
+      })
+
+      setLoadingSynthdef(name)
+      if (synthPlayingTimerRef.current !== null) {
+        clearTimeout(synthPlayingTimerRef.current)
+        synthPlayingTimerRef.current = null
+      }
+
       void playNote(synth, playParams).then(() => {
         setLoadingSynthdef(null)
         setSynthIsPlaying(true)
+        // Auto-reset playing indicator after attack + release duration
+        const attack = playParams['attack'] ?? 0
+        const release = playParams['release'] ?? 1
+        synthPlayingTimerRef.current = setTimeout(
+          () => setSynthIsPlaying(false),
+          (attack + release) * 1000 + 200,
+        )
       }).catch(() => {
         setLoadingSynthdef(null)
       })

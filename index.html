@@ -4,7 +4,14 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sonic Pi Browser</title>
+    <title>Pi Studio</title>
+    <script>
+      const redirect = sessionStorage.getItem('spa-redirect');
+      if (redirect && redirect !== '/') {
+        sessionStorage.removeItem('spa-redirect');
+        window.history.replaceState(null, '', '/pi-studio' + redirect);
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

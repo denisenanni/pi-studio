@@ -370,3 +370,30 @@
 - Rate = `targetBpm / loop.originalBpm` (per-loop, not derived from global override)
 - Ambient loops: rate = 1, snippet omits the `rate:` param
 - No `any` types
+
+---
+
+## Task 13 — Landing Page
+
+### Plan
+
+- [x] 1. Check if `react-router-dom` already installed; install if not (`yarn add react-router-dom`)
+- [x] 2. Add GitHub Pages SPA redirect: create `public/404.html` and add redirect handler to `index.html`
+- [x] 3. Wire React Router in `main.tsx` with two routes: `/` → `LandingPage`, `/browser` → existing `App`
+- [x] 4. Create `src/components/LandingPage.tsx` with all 5 sections: Hero, What is Sonic Pi, Browser Features, Studio Teaser, Footer
+- [x] 5. Add landing page CSS to `src/index.css`
+- [x] 6. Update `index.html` title to `Pi Studio`
+- [x] 7. Verify build passes (`yarn build`)
+
+### Review
+
+**Files created/modified:**
+
+- `package.json` — `react-router-dom@7` added as dependency
+- `public/404.html` — GitHub Pages SPA redirect: captures the requested path, stores it in `sessionStorage`, and redirects to the base URL
+- `index.html` — title updated to `Pi Studio`; redirect handler reads `sessionStorage` and restores the path via `history.replaceState` before React mounts
+- `src/main.tsx` — wrapped in `<BrowserRouter basename="/pi-studio">` with two routes: `/` → `LandingPage`, `/browser` → existing `App`. The existing `App` is untouched.
+- `src/components/LandingPage.tsx` — new component with 5 sections: Hero (animated dot-grid, π logo, CTAs), What is Sonic Pi (muted blurb + link), Browser Features (2×2 card grid), Studio Teaser (coming-soon badge + email waitlist with confirm-only UI, no backend), Footer (credits + 3 external links). Email waitlist stores nothing — pure UI feedback.
+- `src/index.css` — `overflow: hidden` moved from `body` to `.app` so the landing page can scroll freely; ~290 lines of landing page styles appended (hero, cards, studio teaser, footer, mobile breakpoints). CSS animation on hero background respects `prefers-reduced-motion`.
+
+**Build:** `yarn build` passes with zero TypeScript errors.

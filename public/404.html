@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      const path = window.location.pathname;
+      const base = '/pi-studio';
+      const route = path.replace(base, '') || '/';
+      sessionStorage.setItem('spa-redirect', route);
+      window.location.replace(base + '/');
+    </script>
+  </head>
+  <body></body>
+</html>

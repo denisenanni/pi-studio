@@ -1500,7 +1500,7 @@ kbd {
 .landing-logo {
   font-size: 72px;
   line-height: 1;
-  color: #7cfc7c;
+  color: var(--accent);
   opacity: 0.85;
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
 }
@@ -1528,8 +1528,8 @@ kbd {
 .landing-btn-primary {
   display: inline-block;
   padding: 12px 28px;
-  border: 1px solid #7cfc7c;
-  color: #7cfc7c;
+  border: 1px solid var(--accent);
+  color: var(--accent);
   text-decoration: none;
   font-family: inherit;
   font-size: 14px;
@@ -1538,7 +1538,7 @@ kbd {
 }
 
 .landing-btn-primary:hover {
-  background: #7cfc7c;
+  background: var(--accent);
   color: #111111;
 }
 
@@ -1571,7 +1571,7 @@ kbd {
 }
 
 .landing-link {
-  color: #7cfc7c;
+  color: var(--accent);
   text-decoration: none;
   transition: opacity 0.1s;
 }
@@ -1612,13 +1612,13 @@ kbd {
 }
 
 .landing-card:hover {
-  border-color: #7cfc7c;
+  border-color: var(--accent);
 }
 
 .landing-card-icon {
   display: block;
   font-size: 28px;
-  color: #7cfc7c;
+  color: var(--accent);
   margin-bottom: 14px;
   line-height: 1;
 }
@@ -1668,8 +1668,8 @@ kbd {
 
 .landing-badge {
   font-size: 11px;
-  color: #7cfc7c;
-  border: 1px solid #2d5a2d;
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
   padding: 3px 8px;
   line-height: 1.4;
 }
@@ -1688,8 +1688,8 @@ kbd {
 }
 
 .landing-studio-desc code {
-  color: #7cfc7c;
-  background: #131a13;
+  color: var(--accent);
+  background: var(--accent-bg);
   padding: 1px 5px;
 }
 
@@ -1733,13 +1733,13 @@ kbd {
 }
 
 .landing-notify-btn:hover {
-  border-color: #7cfc7c;
-  color: #7cfc7c;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .landing-notify-thanks {
   font-size: 14px;
-  color: #7cfc7c;
+  color: var(--accent);
   padding: 10px 0;
 }
 
@@ -1771,7 +1771,7 @@ kbd {
 }
 
 .landing-footer-links a:hover {
-  color: #7cfc7c;
+  color: var(--accent);
 }
 
 /* ── Landing Mobile ────────────────────────────────────────── */

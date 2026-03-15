@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
 
 interface FeatureCard {
   icon: string
@@ -33,10 +34,10 @@ export function LandingPage() {
   const [email, setEmail] = useState('')
   const [submitted, setSubmitted] = useState(false)
 
-  const handleNotify = useCallback((e: React.FormEvent) => {
+  const handleNotify = (e: React.FormEvent) => {
     e.preventDefault()
     if (email.trim()) setSubmitted(true)
-  }, [email])
+  }
 
   return (
     <div className="landing">
@@ -45,14 +46,14 @@ export function LandingPage() {
       <section className="landing-hero">
         <div className="landing-hero-bg" aria-hidden="true" />
         <div className="landing-hero-content">
-          <div className="landing-logo" aria-label="Pi Studio">π</div>
+          <div className="landing-logo" aria-hidden="true">π</div>
           <h1 className="landing-title">Pi Studio</h1>
           <p className="landing-tagline">Explore, learn, create with Sonic Pi.</p>
           <div className="landing-cta-row">
-            <a className="landing-btn-primary" href="/pi-studio/browser">
+            <Link className="landing-btn-primary" to="/browser">
               Open Browser →
-            </a>
-            <span className="landing-btn-disabled" aria-disabled="true">
+            </Link>
+            <span className="landing-btn-disabled">
               Studio — coming soon
             </span>
           </div>
@@ -93,9 +94,9 @@ export function LandingPage() {
           ))}
         </div>
         <div className="landing-features-cta">
-          <a className="landing-btn-primary" href="/pi-studio/browser">
+          <Link className="landing-btn-primary" to="/browser">
             Open Browser →
-          </a>
+          </Link>
         </div>
       </section>
 

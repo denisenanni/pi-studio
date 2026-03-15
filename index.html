@@ -4,9 +4,16 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/pi-studio/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sonic Pi Browser</title>
-    <script type="module" crossorigin src="/pi-studio/assets/index-B4HqLuuc.js"></script>
-    <link rel="stylesheet" crossorigin href="/pi-studio/assets/index-XjYN14XS.css">
+    <title>Pi Studio</title>
+    <script>
+      const redirect = sessionStorage.getItem('spa-redirect');
+      if (redirect && redirect !== '/') {
+        sessionStorage.removeItem('spa-redirect');
+        window.history.replaceState(null, '', '/pi-studio' + redirect);
+      }
+    </script>
+    <script type="module" crossorigin src="/pi-studio/assets/index-EpJ85eNd.js"></script>
+    <link rel="stylesheet" crossorigin href="/pi-studio/assets/index-CzOi_PT4.css">
   </head>
   <body>
     <div id="root"></div>

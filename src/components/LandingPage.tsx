@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 
 interface FeatureCard {
@@ -33,13 +33,15 @@ const FEATURE_CARDS: FeatureCard[] = [
 ];
 
 export function LandingPage() {
-  const [email, setEmail] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
-  const handleNotify = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email.trim()) setSubmitted(true);
-  };
+  useEffect(() => {
+    const onScroll = () => {
+      if (window.scrollY > 60) setScrolled(true);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <div className="landing">
@@ -60,6 +62,12 @@ export function LandingPage() {
             </Link>
             <span className="landing-btn-disabled">Studio — coming soon</span>
           </div>
+        </div>
+        <div
+          className={`landing-scroll-indicator${scrolled ? " hidden" : ""}`}
+          aria-hidden="true"
+        >
+          ∨
         </div>
       </section>
 
@@ -121,25 +129,6 @@ export function LandingPage() {
         <p className="landing-studio-hook">
           → No more looking up syntax. Just make music.
         </p>
-
-        {submitted ? (
-          <p className="landing-notify-thanks">Thanks! We'll let you know.</p>
-        ) : (
-          <form className="landing-notify-form" onSubmit={handleNotify}>
-            <input
-              className="landing-notify-input"
-              type="email"
-              placeholder="your@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              aria-label="Email address for Studio updates"
-            />
-            <button className="landing-notify-btn" type="submit">
-              Notify me
-            </button>
-          </form>
-        )}
       </section>
 
       {/* ── Section 5: Footer ─────────────────────────────── */}

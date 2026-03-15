@@ -397,3 +397,40 @@
 - `src/index.css` — `overflow: hidden` moved from `body` to `.app` so the landing page can scroll freely; ~290 lines of landing page styles appended (hero, cards, studio teaser, footer, mobile breakpoints). CSS animation on hero background respects `prefers-reduced-motion`.
 
 **Build:** `yarn build` passes with zero TypeScript errors.
+
+---
+
+## Task 14 — Studio: Scaffold & Layout
+
+### Plan
+
+- [x] 1. Create `src/studio/types.ts` — all TypeScript types (StudioLoop, StudioNote, StudioState, StudioSnapshot, LoopType)
+- [x] 2. Create `src/studio/studio.css` — all Studio styles (separate from index.css)
+- [x] 3. Create `src/studio/Transport.tsx` — transport bar (BPM inline edit, tap tempo, time signature, play/stop, bar counter, undo/redo, export button)
+- [x] 4. Create `src/studio/WaveformStrip.tsx` — 52px strip with static flat-line canvas + collapse toggle
+- [x] 5. Create `src/studio/LoopsPanel.tsx` — 3 placeholder loops, each with name, mute, type badge, 16-step grid, VU meter; drag handle + collapse
+- [x] 6. Create `src/studio/DetailPanel.tsx` — header bar (dropdowns, scale lock), piano roll with note labels + placeholder notes + grid, velocity lane
+- [x] 7. Create `src/studio/ParamsBar.tsx` — horizontal row of 6 static param sliders
+- [x] 8. Create `src/studio/CodeOutput.tsx` — syntax-highlighted static Ruby, copy button, collapse toggle, drag handle
+- [x] 9. Create `src/studio/StudioPage.tsx` — root layout, panel resize (drag handles), collapse state, localStorage persistence
+- [x] 10. Add `/studio` route in `main.tsx`
+- [x] 11. Verify build passes (`yarn build`)
+
+### Review
+
+**Files created:**
+
+- `src/studio/types.ts` — `LoopType`, `StudioNote`, `StudioLoop`, `StudioState`, `StudioSnapshot`. `StudioSnapshot` is defined explicitly (not `Omit`) to keep the type self-documenting. No `any`.
+- `src/studio/studio.css` — ~500 lines, fully isolated. Uses `:root` CSS custom properties from `index.css` (`--accent`, `--accent-bg`, `--accent-border`). Mobile breakpoint at 768px stacks panels vertically and hides drag handles.
+- `src/studio/Transport.tsx` — BPM click-to-edit (inline `<input>`, blur/Enter commits, Escape cancels). Tap tempo: accumulates tap timestamps in a ref, computes average interval after 3+ taps, resets after 2s of inactivity. Time signature: two constrained number inputs. Play/Stop, bar counter, waveform toggle (shown when wave is collapsed), undo/redo with disabled state, export button (placeholder blob download).
+- `src/studio/WaveformStrip.tsx` — `useEffect` draws a static flat line on a `<canvas id="waveform-canvas">` after mount. Collapse hides via CSS height transition.
+- `src/studio/LoopsPanel.tsx` — 3 placeholder loops, each with name (double-click to rename inline), mute button, type badge, 16-step grid, 8-bar VU meter (static levels). Collapse button. Drag handle triggers `onResizeStart` in parent.
+- `src/studio/DetailPanel.tsx` — Header: loop name, synth/fx/steps selects, scale-lock toggle (CSS pill switch), scale name select. Piano roll: rows for MIDI 48–84 (octaves 3–6), note labels column (C/F shown, others show semitone name), beat-marker columns every 4 steps. `NoteBlock` positions notes absolutely by MIDI row and step. `VelocityLane` renders note velocity bars. Scroll centered on C4 on mount via ref callback.
+- `src/studio/ParamsBar.tsx` — 6 params with local `useState`. Spacer before REVERB MIX to visually separate FX from synth params.
+- `src/studio/CodeOutput.tsx` — Line-by-line tokeniser (`tokeniseLine`) classifies keywords/symbols/numbers/plain text. Renders each token as a `<span>` with a `tok-*` class. Copy uses `navigator.clipboard`. Height and collapsed state controlled by parent.
+- `src/studio/StudioPage.tsx` — Root layout. Drag resize: `mousedown` on handle attaches `mousemove`/`mouseup` to `window`, computes clamped delta, updates state. All 5 layout values persist to `localStorage`. Undo/redo: `pushUndo` helper snapshots current state before any mutation; stack capped at 50 entries. Export: stub blob download. All audio/code-gen wired as no-ops for this task.
+
+**Modified:**
+- `src/main.tsx` — `/studio` route added.
+
+**Build:** `yarn build` passes with zero TypeScript errors. Browser at `/browser` completely unaffected.

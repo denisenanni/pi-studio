@@ -1,0 +1,383 @@
+import { useState, useCallback, useEffect, useRef } from 'react'
+import './studio.css'
+import type { StudioState, StudioLoop, StudioNote, StudioSnapshot } from './types'
+import { Transport } from './Transport'
+import { WaveformStrip } from './WaveformStrip'
+import { LoopsPanel } from './LoopsPanel'
+import { DetailPanel } from './DetailPanel'
+import { ParamsBar } from './ParamsBar'
+import { CodeOutput } from './CodeOutput'
+
+// ── localStorage keys ─────────────────────────────────────
+
+const LS_LOOPS_WIDTH   = 'studio-loops-width'
+const LS_CODE_HEIGHT   = 'studio-code-height'
+const LS_LOOPS_COLLAPSED = 'studio-loops-collapsed'
+const LS_CODE_COLLAPSED  = 'studio-code-collapsed'
+const LS_WAVE_COLLAPSED  = 'studio-wave-collapsed'
+
+const DEFAULT_LOOPS_WIDTH = 220
+const DEFAULT_CODE_HEIGHT = 120
+const MIN_LOOPS_WIDTH = 180
+const MAX_LOOPS_WIDTH = 340
+const MIN_CODE_HEIGHT = 36
+const MAX_CODE_HEIGHT = 280
+
+function readInt(key: string, fallback: number): number {
+  try {
+    const v = parseInt(localStorage.getItem(key) ?? '', 10)
+    return isNaN(v) ? fallback : v
+  } catch { return fallback }
+}
+
+function readBool(key: string, fallback: boolean): boolean {
+  try {
+    const v = localStorage.getItem(key)
+    if (v === null) return fallback
+    return v === 'true'
+  } catch { return fallback }
+}
+
+// ── Placeholder data ──────────────────────────────────────
+
+function makeSteps(total: number, active: number[]): boolean[] {
+  return Array.from({ length: total }, (_, i) => active.includes(i))
+}
+
+const PLACEHOLDER_NOTE = (id: string, step: number, midiNote: number, vel: number): StudioNote => ({
+  id, step, duration: 1, note: midiNote, velocity: vel,
+})
+
+const PLACEHOLDER_LOOPS: StudioLoop[] = [
+  {
+    id: 'loop-melody',
+    name: 'melody',
+    type: 'synth',
+    synth: 'prophet',
+    sample: '',
+    fx: 'reverb',
+    steps: 16,
+    activeSteps: makeSteps(16, [0, 2, 4, 6, 8, 10, 12, 14]),
+    notes: [
+      PLACEHOLDER_NOTE('n1', 0, 72, 0.9),  // C5
+      PLACEHOLDER_NOTE('n2', 2, 67, 0.75), // G4
+      PLACEHOLDER_NOTE('n3', 4, 71, 0.8),  // B4
+      PLACEHOLDER_NOTE('n4', 6, 76, 0.85), // E5
+    ],
+    muted: false,
+    bars: 1,
+  },
+  {
+    id: 'loop-beat',
+    name: 'beat',
+    type: 'sample',
+    synth: 'prophet',
+    sample: 'bd_haus',
+    fx: 'none',
+    steps: 16,
+    activeSteps: makeSteps(16, [0, 4, 8, 12]),
+    notes: [],
+    muted: false,
+    bars: 1,
+  },
+  {
+    id: 'loop-bass',
+    name: 'bass',
+    type: 'synth',
+    synth: 'tb303',
+    sample: '',
+    fx: 'none',
+    steps: 16,
+    activeSteps: makeSteps(16, [0, 3, 6, 9, 12, 15]),
+    notes: [],
+    muted: false,
+    bars: 1,
+  },
+]
+
+function makeInitialState(): StudioState {
+  return {
+    bpm: 120,
+    timeSignature: [4, 4],
+    loops: PLACEHOLDER_LOOPS,
+    selectedLoopId: 'loop-melody',
+    isPlaying: false,
+    currentBar: 1,
+    currentStep: 1,
+    scaleLock: false,
+    scaleRoot: 'C',
+    scaleName: 'minor',
+    undoStack: [],
+    redoStack: [],
+  }
+}
+
+// ── Snapshot (for undo/redo) ──────────────────────────────
+
+function snapshot(state: StudioState): StudioSnapshot {
+  return {
+    bpm: state.bpm,
+    timeSignature: state.timeSignature,
+    loops: state.loops,
+    selectedLoopId: state.selectedLoopId,
+    scaleLock: state.scaleLock,
+    scaleRoot: state.scaleRoot,
+    scaleName: state.scaleName,
+  }
+}
+
+function applySnapshot(state: StudioState, snap: StudioSnapshot): StudioState {
+  return { ...state, ...snap }
+}
+
+// ── StudioPage ────────────────────────────────────────────
+
+export function StudioPage() {
+  const [state, setState] = useState<StudioState>(makeInitialState)
+
+  // Panel layout state (not part of undo history)
+  const [loopsWidth, setLoopsWidth]       = useState(() => readInt(LS_LOOPS_WIDTH, DEFAULT_LOOPS_WIDTH))
+  const [codeHeight, setCodeHeight]       = useState(() => readInt(LS_CODE_HEIGHT, DEFAULT_CODE_HEIGHT))
+  const [loopsCollapsed, setLoopsCollapsed] = useState(() => readBool(LS_LOOPS_COLLAPSED, false))
+  const [codeCollapsed, setCodeCollapsed]   = useState(() => readBool(LS_CODE_COLLAPSED, false))
+  const [waveCollapsed, setWaveCollapsed]   = useState(() => readBool(LS_WAVE_COLLAPSED, false))
+
+  // Persist layout to localStorage
+  useEffect(() => { localStorage.setItem(LS_LOOPS_WIDTH, String(loopsWidth)) }, [loopsWidth])
+  useEffect(() => { localStorage.setItem(LS_CODE_HEIGHT, String(codeHeight)) }, [codeHeight])
+  useEffect(() => { localStorage.setItem(LS_LOOPS_COLLAPSED, String(loopsCollapsed)) }, [loopsCollapsed])
+  useEffect(() => { localStorage.setItem(LS_CODE_COLLAPSED, String(codeCollapsed)) }, [codeCollapsed])
+  useEffect(() => { localStorage.setItem(LS_WAVE_COLLAPSED, String(waveCollapsed)) }, [waveCollapsed])
+
+  // ── Drag resize: loops width ──────────────────────────
+
+  const loopsDragRef = useRef<{ startX: number; startWidth: number } | null>(null)
+
+  const handleLoopsResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    loopsDragRef.current = { startX: e.clientX, startWidth: loopsWidth }
+
+    const onMove = (ev: MouseEvent) => {
+      if (!loopsDragRef.current) return
+      const delta = ev.clientX - loopsDragRef.current.startX
+      const next = Math.min(MAX_LOOPS_WIDTH, Math.max(MIN_LOOPS_WIDTH, loopsDragRef.current.startWidth + delta))
+      setLoopsWidth(next)
+    }
+    const onUp = () => {
+      loopsDragRef.current = null
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [loopsWidth])
+
+  const handleLoopsResizeReset = useCallback(() => {
+    setLoopsWidth(DEFAULT_LOOPS_WIDTH)
+  }, [])
+
+  // ── Drag resize: code height ──────────────────────────
+
+  const codeDragRef = useRef<{ startY: number; startHeight: number } | null>(null)
+
+  const handleCodeResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    codeDragRef.current = { startY: e.clientY, startHeight: codeHeight }
+
+    const onMove = (ev: MouseEvent) => {
+      if (!codeDragRef.current) return
+      const delta = codeDragRef.current.startY - ev.clientY  // drag up = increase height
+      const next = Math.min(MAX_CODE_HEIGHT, Math.max(MIN_CODE_HEIGHT, codeDragRef.current.startHeight + delta))
+      setCodeHeight(next)
+    }
+    const onUp = () => {
+      codeDragRef.current = null
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [codeHeight])
+
+  // ── State mutations (with undo) ───────────────────────
+
+  const pushUndo = useCallback((prev: StudioState): StudioState => ({
+    ...prev,
+    undoStack: [...prev.undoStack.slice(-49), snapshot(prev)],
+    redoStack: [],
+  }), [])
+
+  const handleBpmChange = useCallback((bpm: number) => {
+    setState((s) => ({ ...pushUndo(s), bpm }))
+  }, [pushUndo])
+
+  const handleTimeSigChange = useCallback((ts: [number, number]) => {
+    setState((s) => ({ ...pushUndo(s), timeSignature: ts }))
+  }, [pushUndo])
+
+  const handlePlay = useCallback(() => setState((s) => ({ ...s, isPlaying: true })), [])
+  const handleStop = useCallback(() => setState((s) => ({ ...s, isPlaying: false, currentBar: 1, currentStep: 1 })), [])
+
+  const handleUndo = useCallback(() => {
+    setState((s) => {
+      if (s.undoStack.length === 0) return s
+      const snap = s.undoStack[s.undoStack.length - 1]
+      return {
+        ...applySnapshot(s, snap),
+        undoStack: s.undoStack.slice(0, -1),
+        redoStack: [...s.redoStack, snapshot(s)],
+      }
+    })
+  }, [])
+
+  const handleRedo = useCallback(() => {
+    setState((s) => {
+      if (s.redoStack.length === 0) return s
+      const snap = s.redoStack[s.redoStack.length - 1]
+      return {
+        ...applySnapshot(s, snap),
+        redoStack: s.redoStack.slice(0, -1),
+        undoStack: [...s.undoStack, snapshot(s)],
+      }
+    })
+  }, [])
+
+  const handleExport = useCallback(() => {
+    // Placeholder — code generation in a later task
+    const blob = new Blob(['# Pi Studio export\nuse_bpm 120\n'], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'pi-studio-export.rb'
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [])
+
+  const handleSelectLoop = useCallback((id: string) => {
+    setState((s) => ({ ...s, selectedLoopId: id }))
+  }, [])
+
+  const handleToggleMute = useCallback((id: string) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) => l.id === id ? { ...l, muted: !l.muted } : l),
+    }))
+  }, [pushUndo])
+
+  const handleRenameLoop = useCallback((id: string, name: string) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) => l.id === id ? { ...l, name } : l),
+    }))
+  }, [pushUndo])
+
+  const handleSynthChange = useCallback((synth: string) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) => l.id === s.selectedLoopId ? { ...l, synth } : l),
+    }))
+  }, [pushUndo])
+
+  const handleFxChange = useCallback((fx: string) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) => l.id === s.selectedLoopId ? { ...l, fx } : l),
+    }))
+  }, [pushUndo])
+
+  const handleStepsChange = useCallback((steps: number) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) => {
+        if (l.id !== s.selectedLoopId) return l
+        const newActive = Array.from({ length: steps }, (_, i) => l.activeSteps[i] ?? false)
+        return { ...l, steps, activeSteps: newActive }
+      }),
+    }))
+  }, [pushUndo])
+
+  const handleScaleLockToggle = useCallback(() => {
+    setState((s) => ({ ...pushUndo(s), scaleLock: !s.scaleLock }))
+  }, [pushUndo])
+
+  const handleScaleNameChange = useCallback((name: string) => {
+    setState((s) => ({ ...pushUndo(s), scaleName: name }))
+  }, [pushUndo])
+
+  const handleToggleWave = useCallback(() => setWaveCollapsed((v) => !v), [])
+  const handleToggleCodeCollapse = useCallback(() => setCodeCollapsed((v) => !v), [])
+  const handleToggleLoopsCollapse = useCallback(() => {
+    setLoopsCollapsed((v) => {
+      if (v) handleLoopsResizeReset()
+      return !v
+    })
+  }, [handleLoopsResizeReset])
+
+  // ── Derived ────────────────────────────────────────────
+
+  const selectedLoop = state.loops.find((l) => l.id === state.selectedLoopId) ?? null
+
+  return (
+    <div className="studio-page">
+      <Transport
+        bpm={state.bpm}
+        onBpmChange={handleBpmChange}
+        timeSignature={state.timeSignature}
+        onTimeSignatureChange={handleTimeSigChange}
+        isPlaying={state.isPlaying}
+        onPlay={handlePlay}
+        onStop={handleStop}
+        currentBar={state.currentBar}
+        currentStep={state.currentStep}
+        canUndo={state.undoStack.length > 0}
+        canRedo={state.redoStack.length > 0}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onExport={handleExport}
+        waveCollapsed={waveCollapsed}
+        onToggleWave={handleToggleWave}
+      />
+
+      <WaveformStrip
+        collapsed={waveCollapsed}
+        onToggle={handleToggleWave}
+      />
+
+      <div className="studio-body">
+        <LoopsPanel
+          loops={state.loops}
+          selectedLoopId={state.selectedLoopId}
+          onSelectLoop={handleSelectLoop}
+          onToggleMute={handleToggleMute}
+          onRenameLoop={handleRenameLoop}
+          width={loopsWidth}
+          collapsed={loopsCollapsed}
+          onToggleCollapse={handleToggleLoopsCollapse}
+          onResizeStart={handleLoopsResizeStart}
+        />
+
+        <div className="studio-center">
+          <DetailPanel
+            loop={selectedLoop}
+            scaleLock={state.scaleLock}
+            scaleName={state.scaleName}
+            onScaleLockToggle={handleScaleLockToggle}
+            onScaleNameChange={handleScaleNameChange}
+            onSynthChange={handleSynthChange}
+            onFxChange={handleFxChange}
+            onStepsChange={handleStepsChange}
+          />
+
+          <ParamsBar />
+
+          <CodeOutput
+            height={codeHeight}
+            collapsed={codeCollapsed}
+            onToggleCollapse={handleToggleCodeCollapse}
+            onResizeStart={handleCodeResizeStart}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
 import { LandingPage } from './components/LandingPage.tsx'
+import { StudioPage } from './studio/StudioPage.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -11,6 +12,7 @@ createRoot(document.getElementById('root')!).render(
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/browser" element={<App />} />
+        <Route path="/studio" element={<StudioPage />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

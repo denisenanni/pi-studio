@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect } from 'react'
 import { Player, start as toneStart } from 'tone'
 import { ALL_LOOPS } from '../data/loopDurations'
 import type { LoopInfo } from '../data/loopDurations'
@@ -439,23 +439,24 @@ function NoteReference() {
 
 // ── Loop Sync ──────────────────────────────────────────────────
 
-const BEATS_OPTIONS = [2, 4, 8, 16] as const
-type BeatsOption = (typeof BEATS_OPTIONS)[number]
-
-function calcRate(loop: LoopInfo, targetBpm: number, beats: number): number {
-  const originalBpm = (beats * 60) / loop.duration
-  return targetBpm / originalBpm
+function calcRate(loop: LoopInfo, targetBpm: number): number {
+  if (loop.isAmbient) return 1
+  return targetBpm / loop.originalBpm
 }
 
-function buildLoopSnippet(loop: LoopInfo, targetBpm: number, beats: number): string {
-  const rate = calcRate(loop, targetBpm, beats)
+function buildLoopSnippet(loop: LoopInfo, targetBpm: number): string {
+  if (loop.isAmbient) {
+    return `use_bpm ${targetBpm}\nlive_loop :beat do\n  sample :${loop.name}\n  sleep sample_duration(:${loop.name})\nend`
+  }
+  const rate = calcRate(loop, targetBpm)
   const rateStr = rate.toFixed(3)
   return `use_bpm ${targetBpm}\nlive_loop :beat do\n  sample :${loop.name}, rate: ${rateStr}\n  sleep sample_duration(:${loop.name}, rate: ${rateStr})\nend`
 }
 
+const AMBIENT_TITLE = 'Ambient loop — no fixed tempo'
+
 function LoopSync() {
   const [targetBpm, setTargetBpm] = useState(120)
-  const [beats, setBeats] = useState<BeatsOption>(4)
   const [selectedName, setSelectedName] = useState<string | null>(null)
   const [copiedName, setCopiedName] = useState<string | null>(null)
   const [formulaOpen, setFormulaOpen] = useState(false)
@@ -464,6 +465,9 @@ function LoopSync() {
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const playerRef = useRef<Player | null>(null)
   const cancelRef = useRef<(() => void) | null>(null)
+  // Always-current ref so onload closures read the BPM at playback start, not at click time
+  const targetBpmRef = useRef(targetBpm)
+  useLayoutEffect(() => { targetBpmRef.current = targetBpm })
 
   // Dispose the player and clear state
   const stopPreview = useCallback(() => {
@@ -477,16 +481,19 @@ function LoopSync() {
     setPlayingName(null)
   }, [])
 
-  // Update playback rate live when BPM/beats changes while a loop is playing
+  // Update playback rate live when BPM changes while a loop is playing
   useEffect(() => {
     if (playingName === null || playerRef.current === null) return
     const loop = ALL_LOOPS.find((l) => l.name === playingName)
     if (!loop) return
-    const newRate = calcRate(loop, targetBpm, beats)
-    if (playerRef.current.loaded) {
-      playerRef.current.playbackRate = newRate
-    }
-  }, [targetBpm, beats, playingName])
+    playerRef.current.playbackRate = calcRate(loop, targetBpm)
+  }, [targetBpm, playingName])
+
+  // Pre-compute rates for all rows so the map doesn't recompute on every render
+  const loopRates = useMemo(
+    () => Object.fromEntries(ALL_LOOPS.map((l) => [l.name, calcRate(l, targetBpm)])),
+    [targetBpm],
+  )
 
   // Clean up player and timers on unmount
   useEffect(() => {
@@ -497,7 +504,7 @@ function LoopSync() {
     }
   }, [])
 
-  const handlePreview = useCallback((loop: LoopInfo, rate: number, e: React.MouseEvent) => {
+  const handlePreview = useCallback((loop: LoopInfo, e: React.MouseEvent) => {
     e.stopPropagation()
 
     // Unlock AudioContext synchronously while inside the user gesture
@@ -518,7 +525,8 @@ function LoopSync() {
       loop: true,
       onload: () => {
         if (cancelled) return
-        player.playbackRate = rate
+        // Read targetBpmRef so we get the BPM current at load time, not at click time
+        player.playbackRate = calcRate(loop, targetBpmRef.current)
         player.start()
       },
     }).toDestination()
@@ -533,19 +541,19 @@ function LoopSync() {
   )
 
   const selectedSnippet = useMemo(
-    () => selectedLoop ? buildLoopSnippet(selectedLoop, targetBpm, beats) : null,
-    [selectedLoop, targetBpm, beats],
+    () => selectedLoop ? buildLoopSnippet(selectedLoop, targetBpm) : null,
+    [selectedLoop, targetBpm],
   )
 
   const handleCopyRow = useCallback((loop: LoopInfo, e: React.MouseEvent) => {
     e.stopPropagation()
-    const snippet = buildLoopSnippet(loop, targetBpm, beats)
+    const snippet = buildLoopSnippet(loop, targetBpm)
     void copyToClipboard(snippet).then(() => {
       setCopiedName(loop.name)
       if (copyTimerRef.current !== null) clearTimeout(copyTimerRef.current)
       copyTimerRef.current = setTimeout(() => setCopiedName(null), 1200)
     })
-  }, [targetBpm, beats])
+  }, [targetBpm])
 
   const handleCopySelected = useCallback(() => {
     if (!selectedSnippet) return
@@ -575,21 +583,6 @@ function LoopSync() {
         />
       </div>
 
-      <div className="tools-field-row">
-        <label className="tools-label">Beats / loop</label>
-        <div className="tools-pill-group">
-          {BEATS_OPTIONS.map((b) => (
-            <button
-              key={b}
-              className={`tools-pill${beats === b ? ' active' : ''}`}
-              onClick={() => setBeats(b)}
-            >
-              {b}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Loop table */}
       <div className="tools-note-table-wrapper">
         <table className="tools-loop-table">
@@ -597,6 +590,7 @@ function LoopSync() {
             <tr>
               <th>Sample</th>
               <th>Duration</th>
+              <th>Beats</th>
               <th>Est. BPM</th>
               <th>Rate</th>
               <th>Sleep</th>
@@ -606,8 +600,7 @@ function LoopSync() {
           </thead>
           <tbody>
             {ALL_LOOPS.map((loop) => {
-              const rate = calcRate(loop, targetBpm, beats)
-              const originalBpm = (beats * 60) / loop.duration
+              const rate = loopRates[loop.name]
               return (
                 <tr
                   key={loop.name}
@@ -616,12 +609,25 @@ function LoopSync() {
                 >
                   <td className="tools-note-name">:{loop.name}</td>
                   <td>{loop.duration.toFixed(3)}s</td>
-                  <td>{Math.round(originalBpm)} BPM</td>
-                  <td className="tools-loop-rate">{rate.toFixed(3)}</td>
-                  <td>{beats}</td>
+                  {loop.isAmbient ? (
+                    <>
+                      <td title={AMBIENT_TITLE}>~</td>
+                      <td title={AMBIENT_TITLE}>~</td>
+                      <td title={AMBIENT_TITLE}>~</td>
+                      <td title={AMBIENT_TITLE}>~</td>
+                    </>
+                  ) : (
+                    <>
+                      <td>{loop.beats}</td>
+                      <td>{loop.originalBpm} BPM</td>
+                      <td className="tools-loop-rate">{rate.toFixed(3)}</td>
+                      <td>{loop.beats}</td>
+                    </>
+                  )}
                   <td>
                     <button
                       className="tools-copy-btn tools-copy-row"
+                      aria-label={copiedName === loop.name ? 'Copied' : `Copy snippet for ${loop.name}`}
                       onClick={(e) => handleCopyRow(loop, e)}
                     >
                       {copiedName === loop.name ? 'copied!' : 'copy'}
@@ -630,8 +636,9 @@ function LoopSync() {
                   <td>
                     <button
                       className={`tools-preview-btn${playingName === loop.name ? ' active' : ''}`}
-                      onClick={(e) => handlePreview(loop, rate, e)}
+                      onClick={(e) => handlePreview(loop, e)}
                       title={playingName === loop.name ? 'Stop preview' : 'Play preview'}
+                      aria-label={playingName === loop.name ? `Stop preview of ${loop.name}` : `Play preview of ${loop.name}`}
                     >
                       {playingName === loop.name ? '■' : '▶'}
                     </button>
@@ -649,7 +656,10 @@ function LoopSync() {
           <div className="tools-output-row">
             <span className="tools-output-label">:{selectedLoop.name}</span>
             <span className="tools-output-val">
-              rate {calcRate(selectedLoop, targetBpm, beats).toFixed(3)} · {beats} beats
+              {selectedLoop.isAmbient
+                ? 'Ambient loop — no fixed tempo'
+                : `rate ${calcRate(selectedLoop, targetBpm).toFixed(3)} · ${selectedLoop.beats} beats`
+              }
             </span>
           </div>
           <div className="tools-snippet-block">

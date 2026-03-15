@@ -336,3 +336,37 @@
 - loop_mehackit2: 2.474s | loop_mika: 8.000s | loop_perc1: 2.474s
 - loop_perc2: 2.474s | loop_safari: 8.005s | loop_tabla: 10.674s
 - loop_weirdo: 4.948s | loop_3d_printer: 7.959s
+
+---
+
+## Task 12 — Fix Loop Durations Using Audio Metadata
+
+### Plan
+
+- [x] 1. Write `scripts/read-loop-metadata.mjs` — Node.js script to read FLAC metadata from all loop_ files in `public/samples/`
+- [x] 2. Install `music-metadata` as dev dependency (check for existing equivalent first)
+- [x] 3. Run the script and capture output
+- [x] 4. Analyse results: determine `beats`, `originalBpm`, `isAmbient` for each loop
+- [x] 5. Update `src/data/loopDurations.ts` — add `originalBpm` and `isAmbient` to `LoopInfo` type; update all 17 loop entries with correct values
+- [x] 6. Update `src/components/ToolsTab.tsx`:
+  - Remove global "Beats / loop" pill selector
+  - Use per-loop `originalBpm` and `beats` (from data) for rate calculation
+  - Add "Beats" column to loop table
+  - Show `~` for ambient loops (Est. BPM, Rate, Sleep columns) with tooltip
+  - For ambient loops: rate = 1, sleep = duration in beats at target BPM
+- [x] 7. Verify build passes (`yarn build`)
+
+### Review
+
+**Files created/modified:**
+
+- `scripts/read-loop-metadata.mjs` — Node script using `music-metadata` to read every `loop_*.flac` in `public/samples/` and print duration, BPM, and tags as JSON. No BPM metadata was embedded in any file.
+- `src/data/loopDurations.ts` — `LoopInfo` type extended with `originalBpm: number` and `isAmbient: boolean`. All 17 loops updated: 4 ambient loops (drone_g_97, garzul, mika, safari) have `beats: 0 / originalBpm: 0 / isAmbient: true`; remaining 13 have per-loop beat counts (2–16) and calculated BPM values (60–140). `originalBpm` stored directly (not derived live) so the data is self-documenting and the UI is simpler.
+- `src/components/ToolsTab.tsx` — Removed global "Beats / loop" pill selector and `BeatsOption` type. `calcRate` and `buildLoopSnippet` now take only `loop` and `targetBpm`; `originalBpm` read from `loop.originalBpm`. Loop table gains a "Beats" column. Ambient loops render `~` with a tooltip ("Ambient loop — no fixed tempo") in the Beats/Est. BPM/Rate/Sleep columns. Selected loop detail panel shows the ambient note instead of rate/beats. All references to the removed `beats` state cleaned up.
+
+**Build:** `yarn build` passes with zero TypeScript errors.
+
+**Key changes:**
+- Rate = `targetBpm / loop.originalBpm` (per-loop, not derived from global override)
+- Ambient loops: rate = 1, snippet omits the `rate:` param
+- No `any` types

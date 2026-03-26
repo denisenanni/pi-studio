@@ -315,7 +315,7 @@ body {
   min-width: 30px;
 }
 
-input[type='range'] {
+input[type="range"] {
   width: 80px;
   accent-color: var(--accent);
   cursor: pointer;
@@ -525,8 +525,13 @@ kbd {
 }
 
 @keyframes synths-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.25; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
 }
 
 /* Small spinner on synth card while loading synthdef */
@@ -542,7 +547,9 @@ kbd {
 }
 
 @keyframes synth-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Loop Sync (Tools sub-tab) ────────────────────────────── */
@@ -1268,7 +1275,6 @@ kbd {
 /* ── Mobile ───────────────────────────────────────────────── */
 
 @media (max-width: 640px) {
-
   /* Topbar: scrollable tabs with right-edge fade */
   .topbar {
     gap: 8px;
@@ -1448,7 +1454,7 @@ kbd {
 /* ── Landing Page ─────────────────────────────────────────── */
 
 .landing {
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-family: "SF Mono", "Fira Code", "Consolas", monospace;
   background: #111111;
   color: #cccccc;
   min-height: 100vh;
@@ -1479,13 +1485,21 @@ kbd {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .landing-hero-bg { animation: none; }
-  .landing-scroll-indicator { animation: none; }
+  .landing-hero-bg {
+    animation: none;
+  }
+  .landing-scroll-indicator {
+    animation: none;
+  }
 }
 
 @keyframes landing-grid-drift {
-  from { background-position: 0 0; }
-  to   { background-position: 32px 32px; }
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 32px 32px;
+  }
 }
 
 .landing-scroll-indicator {
@@ -1507,8 +1521,13 @@ kbd {
 }
 
 @keyframes landing-scroll-bounce {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50%       { transform: translateX(-50%) translateY(8px); }
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    transform: translateX(-50%) translateY(8px);
+  }
 }
 
 .landing-hero-content {
@@ -1526,7 +1545,7 @@ kbd {
   line-height: 1;
   color: var(--accent);
   opacity: 0.85;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-family: "SF Mono", "Fira Code", "Consolas", monospace;
 }
 
 .landing-title {
@@ -1557,7 +1576,9 @@ kbd {
   text-decoration: none;
   font-family: inherit;
   font-size: 14px;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
   cursor: pointer;
 }
 
@@ -1717,12 +1738,6 @@ kbd {
   padding: 1px 5px;
 }
 
-.landing-studio-hook {
-  font-size: 14px;
-  color: #555555;
-  margin-bottom: 0;
-}
-
 /* Footer */
 
 .landing-footer {
@@ -1757,9 +1772,15 @@ kbd {
 /* ── Landing Mobile ────────────────────────────────────────── */
 
 @media (max-width: 640px) {
-  .landing-logo { font-size: 56px; }
-  .landing-title { font-size: 32px; }
-  .landing-tagline { font-size: 15px; }
+  .landing-logo {
+    font-size: 56px;
+  }
+  .landing-title {
+    font-size: 32px;
+  }
+  .landing-tagline {
+    font-size: 15px;
+  }
 
   .landing-cta-row {
     flex-direction: column;
@@ -1775,7 +1796,11 @@ kbd {
     grid-template-columns: 1fr;
   }
 
-  .landing-section-title { font-size: 17px; }
+  .landing-section-title {
+    font-size: 17px;
+  }
 
-  .landing-what-text { text-align: left; }
+  .landing-what-text {
+    text-align: left;
+  }
 }

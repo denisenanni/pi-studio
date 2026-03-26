@@ -126,9 +126,6 @@ export function LandingPage() {
           then export a ready-to-run <code>.rb</code> file directly into Sonic
           Pi.
         </p>
-        <p className="landing-studio-hook">
-          → No more looking up syntax. Just make music.
-        </p>
       </section>
 
       {/* ── Section 5: Footer ─────────────────────────────── */}
@@ -137,7 +134,7 @@ export function LandingPage() {
           Pi Studio — built with React, Tone.js and{" "}
           <a
             className="landing-link"
-            href="https://github.com/sonic-pi-net/sonic-pi/tree/dev/app/javascript/pi-time"
+            href="https://github.com/sonic-pi-net/sonic-pi"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -167,7 +164,7 @@ export function LandingPage() {
           </a>
           <a
             className="landing-link"
-            href="https://github.com/sonic-pi-net/sonic-pi/tree/dev/app/javascript/pi-time"
+            href="https://github.com/sonic-pi-net/sonic-pi"
             target="_blank"
             rel="noopener noreferrer"
           >

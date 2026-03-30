@@ -549,3 +549,45 @@
 **Build:** `yarn build` passes with zero TypeScript errors. No `any`.
 
 **Security notes:** `generateCode` is a pure string builder. Loop names and synth/sample strings come from user-controlled state but are only ever rendered as text in the code panel or written to a `.rb` download file — never eval'd, injected into the DOM as HTML, or sent to a server. No sensitive data is exposed.
+
+---
+
+## Task 19 — Audio Playback Engine
+
+### Plan
+
+- [x] 1. **`src/studio/types.ts`** — add `StudioParams` type (`cutoff`, `res`, `attack`, `release`, `amp`, `reverb_mix`); add `params: StudioParams` to `StudioState` only (not `StudioSnapshot` — no undo)
+- [x] 2. **`src/studio/ParamsBar.tsx`** — convert to controlled: accept `params: StudioParams` + `onParamChange: (key: keyof StudioParams, value: number) => void` props; remove internal state
+- [x] 3. **`src/hooks/useSuperSonic.ts`** — export `initSuperSonic()`, `getSonicInstance()`, `ensureSynthDef(name)`, `getNextNodeId()` from module-level singletons so `usePlayback` can call SuperSonic without going through React state
+- [x] 4. **`src/hooks/useFxPlayer.ts`** — export `buildEffect(fxKey, params, mix)` so `usePlayback` can create Tone.js FX nodes for sample loops
+- [x] 5. **`src/studio/usePlayback.ts`** — create hook: Tone.Transport timing; stateRef for always-current state; SuperSonic synths; Tone.Player cache for samples; FX routing via buildEffect; Tone.Analyser for waveform; stop/cleanup
+- [x] 6. **`src/studio/WaveformStrip.tsx`** — accept `analyser: Tone.Analyser | null` prop; rAF loop draws live waveform; falls back to flat line when null
+- [x] 7. **`src/studio/LoopsPanel.tsx`** — accept `currentStep` + `isPlaying` props; `.playing` class on current step cell
+- [x] 8. **`src/studio/DetailPanel.tsx`** — accept `currentStep` + `isPlaying` props; `.studio-roll-playhead` div positioned at `(currentStep % steps / steps) * gridWidth`
+- [x] 9. **`src/studio/StudioPage.tsx`** — lift `params` into `StudioState`; `handleParamChange`; wire `usePlayback`; pass `currentStep`/`isPlaying`/`analyser` down
+- [x] 10. **`src/studio/studio.css`** — `.studio-step.playing` white highlight; `.studio-roll-playhead` absolute vertical line
+- [x] 11. **Build check** — `yarn build` passes, no TypeScript errors, no `any`
+
+### Review
+
+**`src/studio/types.ts`** — `StudioParams` type added; `params: StudioParams` in `StudioState` only (not snapshotted, no undo).
+
+**`src/studio/ParamsBar.tsx`** — now controlled; `params` prop drives all display values and slider positions; internal `values` state removed; `editingKey`/`editRaw` for inline editing retained.
+
+**`src/hooks/useSuperSonic.ts`** — four new exports: `initSuperSonic` (triggers CDN load + init without React state), `getSonicInstance` (returns singleton), `ensureSynthDef` (loads a synthdef once), `getNextNodeId` (re-exports existing counter).
+
+**`src/hooks/useFxPlayer.ts`** — `buildEffect` changed from `function` to `export function`.
+
+**`src/studio/usePlayback.ts`** (new) — `Tone.Transport.scheduleRepeat` fires on every step. `stateRef` always holds current state so the callback reads live values. Synth loops: `ensureSynthDef` pre-loaded before `Transport.start()`; each note fires `/s_new` with note/amp/cutoff/attack/release. Sample loops: `Tone.Player` cached per loopId (rebuilt when `loop.fx` changes); `player.start(time)` for sample-accurate triggering. FX: `buildEffect` node per loop, wired between Player and Destination. `Tone.Analyser` connected to `Tone.Destination` as a parallel tap. BPM sync via `useEffect([bpm, isPlaying])`. Full cleanup on `stop()` and unmount.
+
+**`src/studio/WaveformStrip.tsx`** — when `analyser` is non-null and strip is visible, a `requestAnimationFrame` loop draws the waveform in green (`#00ff41`) using `analyser.getValue()`. Loop cancelled when `analyser` becomes null or component unmounts.
+
+**`src/studio/LoopsPanel.tsx`** — step cell gets `.playing` class when `isPlaying && (currentStep % loop.steps) === stepIndex`.
+
+**`src/studio/DetailPanel.tsx`** — `.studio-roll-playhead` div rendered when `isPlaying`; `left` = `(currentStep % steps / steps) * gridWidth` pixels.
+
+**`src/studio/StudioPage.tsx`** — `DEFAULT_PARAMS` constant; `params` in `makeInitialState`; `handleParamChange` updates `state.params`; old `handlePlay`/`handleStop` setState removed; `usePlayback(state)` provides `play`, `stop`, `isPlaying` (`pbPlaying`), `currentStep` (`pbStep`), `analyser`.
+
+**`src/studio/studio.css`** — `.studio-step.playing` + `.studio-step.active.playing` white highlight; `.studio-roll-playhead` absolute 2px white line, pointer-events none, z-index 10.
+
+**Build:** `yarn build` passes with zero TypeScript errors. No `any`.

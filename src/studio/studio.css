@@ -486,6 +486,18 @@
   opacity: 0.75;
 }
 
+.studio-step.playing {
+  background: #ffffff;
+  border-color: #ffffff;
+  opacity: 1;
+}
+
+.studio-step.active.playing {
+  background: #ffffff;
+  border-color: #ffffff;
+  opacity: 1;
+}
+
 .studio-step.current {
   background: var(--accent, #7cfc7c);
   border-color: var(--accent, #7cfc7c);
@@ -731,6 +743,17 @@
 
 .studio-roll-cell.beat-marker {
   border-right-color: #252525;
+}
+
+/* Playhead */
+.studio-roll-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.7);
+  pointer-events: none;
+  z-index: 10;
 }
 
 /* Note block */

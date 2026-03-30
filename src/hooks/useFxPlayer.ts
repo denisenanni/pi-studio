@@ -63,7 +63,7 @@ function setWet(node: FxNode, mix: number): void {
 // Build
 // ---------------------------------------------------------------------------
 
-function buildEffect(fxKey: string, params: Record<string, number>, mix: number): FxNode {
+export function buildEffect(fxKey: string, params: Record<string, number>, mix: number): FxNode {
   switch (fxKey) {
     case 'reverb': {
       // Tone.Freeverb has roomSize + dampening, which maps to Sonic Pi :reverb room/damp

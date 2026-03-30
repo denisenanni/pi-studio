@@ -248,6 +248,46 @@ function nextNodeId(): number {
   return id
 }
 
+// ── Module-level exports for use outside the React hook (e.g. usePlayback) ───
+
+/** Returns the SuperSonic instance if already initialised, otherwise null. */
+export function getSonicInstance(): SuperSonicInstance | null {
+  return sonicInstance
+}
+
+/** Triggers engine initialisation if not already started or completed. */
+export function initSuperSonic(): void {
+  if (sonicInstance !== null || initPromise !== null) return
+
+  initPromise = (async () => {
+    try {
+      const mod = await import(/* @vite-ignore */ SUPERSONIC_CDN_URL) as { SuperSonic: SuperSonicConstructor }
+      const { SuperSonic: SuperSonicCtor } = mod
+      const instance = new SuperSonicCtor({
+        baseURL: BASE_URL,
+        coreBaseURL: CORE_BASE_URL,
+        synthdefBaseURL: SYNTHDEF_BASE_URL,
+        sampleBaseURL: SAMPLE_BASE_URL,
+      })
+      await instance.init()
+      sonicInstance = instance
+    } catch {
+      initPromise = null
+    }
+  })()
+}
+
+/** Loads a synthdef by name if not already loaded. No-op if engine is not ready. */
+export async function ensureSynthDef(name: string): Promise<void> {
+  if (!sonicInstance) return
+  if (loadedSynthdefs.has(name)) return
+  await sonicInstance.loadSynthDef(name)
+  loadedSynthdefs.add(name)
+}
+
+/** Returns the next available node ID. */
+export { nextNodeId as getNextNodeId }
+
 // ── Play generation counter ───────────────────────────────────────────────────
 // Incremented on every g_freeAll call. playWithFx captures the generation before
 // its 50ms delay and aborts if it has changed — prevents orphan FX nodes firing

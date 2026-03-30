@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import './studio.css'
-import type { StudioState, StudioLoop, StudioNote, StudioSnapshot } from './types'
+import type { StudioState, StudioLoop, StudioNote, StudioSnapshot, StudioParams } from './types'
+import { usePlayback } from './usePlayback'
 import { Transport } from './Transport'
 import { WaveformStrip } from './WaveformStrip'
 import { LoopsPanel } from './LoopsPanel'
@@ -104,6 +105,15 @@ function deriveActiveSteps(notes: StudioNote[], totalSteps: number): boolean[] {
   return active
 }
 
+const DEFAULT_PARAMS: StudioParams = {
+  cutoff:     80,
+  res:        0.50,
+  attack:     0.10,
+  release:    0.50,
+  amp:        1.0,
+  reverb_mix: 0.40,
+}
+
 function makeInitialState(): StudioState {
   return {
     bpm: 120,
@@ -114,6 +124,7 @@ function makeInitialState(): StudioState {
     currentBar: 1,
     currentStep: 1,
     selectedNoteId: null,
+    params: DEFAULT_PARAMS,
     scaleLock: false,
     scaleRoot: 'C',
     scaleName: 'minor',
@@ -229,8 +240,9 @@ export function StudioPage() {
     setState((s) => ({ ...pushUndo(s), timeSignature: ts }))
   }, [pushUndo])
 
-  const handlePlay = useCallback(() => setState((s) => ({ ...s, isPlaying: true })), [])
-  const handleStop = useCallback(() => setState((s) => ({ ...s, isPlaying: false, currentBar: 1, currentStep: 1 })), [])
+  const handleParamChange = useCallback((key: keyof StudioParams, value: number) => {
+    setState((s) => ({ ...s, params: { ...s.params, [key]: value } }))
+  }, [])
 
   const handleUndo = useCallback(() => {
     setState((s) => {
@@ -385,6 +397,14 @@ export function StudioPage() {
     })
   }, [handleLoopsResizeReset])
 
+  // ── Playback engine ────────────────────────────────────
+
+  const { play: playbackPlay, stop: playbackStop, isPlaying: pbPlaying,
+          currentStep: pbStep, analyser } = usePlayback(state)
+
+  const handlePlay  = useCallback(() => { void playbackPlay() }, [playbackPlay])
+  const handleStop  = useCallback(() => { playbackStop() }, [playbackStop])
+
   // ── Derived ────────────────────────────────────────────
 
   const selectedLoop = state.loops.find((l) => l.id === state.selectedLoopId) ?? null
@@ -397,11 +417,11 @@ export function StudioPage() {
         onBpmChange={handleBpmChange}
         timeSignature={state.timeSignature}
         onTimeSignatureChange={handleTimeSigChange}
-        isPlaying={state.isPlaying}
+        isPlaying={pbPlaying}
         onPlay={handlePlay}
         onStop={handleStop}
-        currentBar={state.currentBar}
-        currentStep={state.currentStep}
+        currentBar={Math.floor(pbStep / (state.loops.find((l) => !l.muted)?.steps ?? 16)) + 1}
+        currentStep={pbStep}
         canUndo={state.undoStack.length > 0}
         canRedo={state.redoStack.length > 0}
         onUndo={handleUndo}
@@ -414,6 +434,7 @@ export function StudioPage() {
       <WaveformStrip
         collapsed={waveCollapsed}
         onToggle={handleToggleWave}
+        analyser={analyser}
       />
 
       <div className="studio-body">
@@ -427,6 +448,8 @@ export function StudioPage() {
           collapsed={loopsCollapsed}
           onToggleCollapse={handleToggleLoopsCollapse}
           onResizeStart={handleLoopsResizeStart}
+          currentStep={pbStep}
+          isPlaying={pbPlaying}
         />
 
         <div className="studio-center">
@@ -436,6 +459,8 @@ export function StudioPage() {
             scaleName={state.scaleName}
             scaleRoot={state.scaleRoot}
             selectedNoteId={state.selectedNoteId}
+            currentStep={pbStep}
+            isPlaying={pbPlaying}
             onScaleLockToggle={handleScaleLockToggle}
             onScaleNameChange={handleScaleNameChange}
             onSynthChange={handleSynthChange}
@@ -449,7 +474,7 @@ export function StudioPage() {
             onSelectNote={handleSelectNote}
           />
 
-          <ParamsBar />
+          <ParamsBar params={state.params} onParamChange={handleParamChange} />
 
           <CodeOutput
             code={code}

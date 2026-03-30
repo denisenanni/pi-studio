@@ -108,6 +108,8 @@ interface DetailPanelProps {
   scaleName: string
   scaleRoot: string
   selectedNoteId: string | null
+  currentStep: number
+  isPlaying: boolean
   onScaleLockToggle: () => void
   onScaleNameChange: (name: string) => void
   onSynthChange: (synth: string) => void
@@ -124,7 +126,7 @@ interface DetailPanelProps {
 // ── DetailPanel ──────────────────────────────────────────────────────────────
 
 export function DetailPanel({
-  loop, scaleLock, scaleName, scaleRoot, selectedNoteId,
+  loop, scaleLock, scaleName, scaleRoot, selectedNoteId, currentStep, isPlaying,
   onScaleLockToggle, onScaleNameChange,
   onSynthChange, onFxChange, onStepsChange,
   onAddNote, onDeleteNote, onMoveNote, onResizeNote, onSetVelocity, onSelectNote,
@@ -532,6 +534,14 @@ export function DetailPanel({
                 onContextMenu={handleNoteContextMenu}
               />
             ))}
+
+            {/* Playhead */}
+            {isPlaying && (
+              <div
+                className="studio-roll-playhead"
+                style={{ left: ((currentStep % steps) / steps) * gridWidth }}
+              />
+            )}
           </div>
         </div>
       </div>

@@ -32,11 +32,21 @@ export type StudioSnapshot = {
   scaleName: string
 }
 
+export type StudioParams = {
+  cutoff: number     // 0–130
+  res: number        // 0–0.99
+  attack: number     // 0–4
+  release: number    // 0–8
+  amp: number        // 0–2
+  reverb_mix: number // 0–1
+}
+
 export type StudioState = StudioSnapshot & {
   isPlaying: boolean
   currentBar: number
   currentStep: number
   selectedNoteId: string | null   // ephemeral UI selection — not stored in undo snapshot
+  params: StudioParams            // param bar values — not stored in undo snapshot
   undoStack: StudioSnapshot[]
   redoStack: StudioSnapshot[]
 }

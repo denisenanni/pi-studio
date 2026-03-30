@@ -11,6 +11,8 @@ interface LoopsPanelProps {
   collapsed: boolean
   onToggleCollapse: () => void
   onResizeStart: (e: React.MouseEvent) => void
+  currentStep: number
+  isPlaying: boolean
 }
 
 const VU_HEIGHTS = [3, 5, 7, 6, 4, 8, 5, 3] // static placeholder levels (out of 8)
@@ -20,6 +22,7 @@ export function LoopsPanel({
   onSelectLoop, onToggleMute, onRenameLoop,
   width, collapsed,
   onToggleCollapse, onResizeStart,
+  currentStep, isPlaying,
 }: LoopsPanelProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [nameDraft, setNameDraft] = useState('')
@@ -102,13 +105,16 @@ export function LoopsPanel({
 
             {/* Step grid */}
             <div className="studio-step-grid">
-              {loop.activeSteps.map((active, i) => (
-                <div
-                  key={`step-${i}`}
-                  className={`studio-step${active ? ' active' : ''}`}
-                  title={`Step ${i + 1}`}
-                />
-              ))}
+              {loop.activeSteps.map((active, i) => {
+                const playingThis = isPlaying && (currentStep % loop.steps) === i
+                return (
+                  <div
+                    key={`step-${i}`}
+                    className={`studio-step${active ? ' active' : ''}${playingThis ? ' playing' : ''}`}
+                    title={`Step ${i + 1}`}
+                  />
+                )
+              })}
             </div>
 
             {/* VU meter */}

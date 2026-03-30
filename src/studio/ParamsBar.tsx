@@ -1,82 +1,46 @@
 import { useState, Fragment } from "react";
+import type { StudioParams } from "./types";
 
 interface ParamDef {
-  key: string;
+  key: keyof StudioParams;
   label: string;
   min: number;
   max: number;
   step: number;
-  defaultValue: number;
 }
 
 const PARAMS: ParamDef[] = [
-  {
-    key: "cutoff",
-    label: "CUTOFF",
-    min: 0,
-    max: 130,
-    step: 1,
-    defaultValue: 80,
-  },
-  {
-    key: "res",
-    label: "RES",
-    min: 0,
-    max: 0.99,
-    step: 0.01,
-    defaultValue: 0.5,
-  },
-  {
-    key: "attack",
-    label: "ATTACK",
-    min: 0,
-    max: 4,
-    step: 0.01,
-    defaultValue: 0.1,
-  },
-  {
-    key: "release",
-    label: "RELEASE",
-    min: 0,
-    max: 8,
-    step: 0.01,
-    defaultValue: 0.5,
-  },
-  { key: "amp", label: "AMP", min: 0, max: 2, step: 0.01, defaultValue: 1.0 },
-  {
-    key: "reverb_mix",
-    label: "REVERB MIX",
-    min: 0,
-    max: 1,
-    step: 0.01,
-    defaultValue: 0.4,
-  },
+  { key: "cutoff",     label: "CUTOFF",     min: 0, max: 130,  step: 1    },
+  { key: "res",        label: "RES",        min: 0, max: 0.99, step: 0.01 },
+  { key: "attack",     label: "ATTACK",     min: 0, max: 4,    step: 0.01 },
+  { key: "release",    label: "RELEASE",    min: 0, max: 8,    step: 0.01 },
+  { key: "amp",        label: "AMP",        min: 0, max: 2,    step: 0.01 },
+  { key: "reverb_mix", label: "REVERB MIX", min: 0, max: 1,    step: 0.01 },
 ];
 
 function formatValue(v: number, step: number): string {
   return step < 1 ? v.toFixed(2) : String(Math.round(v));
 }
 
-export function ParamsBar() {
-  const [values, setValues] = useState<Record<string, number>>(() =>
-    Object.fromEntries(PARAMS.map((p) => [p.key, p.defaultValue])),
-  );
-  const [editingKey, setEditingKey] = useState<string | null>(null);
+interface ParamsBarProps {
+  params: StudioParams;
+  onParamChange: (key: keyof StudioParams, value: number) => void;
+}
+
+export function ParamsBar({ params, onParamChange }: ParamsBarProps) {
+  const [editingKey, setEditingKey] = useState<keyof StudioParams | null>(null);
   const [editRaw, setEditRaw] = useState<string>("");
 
   function startEdit(param: ParamDef) {
     setEditingKey(param.key);
-    setEditRaw(
-      formatValue(values[param.key] ?? param.defaultValue, param.step),
-    );
-    // focus happens via autoFocus on the rendered input
+    setEditRaw(formatValue(params[param.key], param.step));
   }
 
   function commitEdit(param: ParamDef) {
     const parsed = parseFloat(editRaw);
     if (!isNaN(parsed)) {
       const clamped = Math.min(param.max, Math.max(param.min, parsed));
-      setValues((prev) => ({ ...prev, [param.key]: clamped }));
+      onParamChange(param.key, clamped);
     }
     setEditingKey(null);
   }
@@ -119,10 +83,7 @@ export function ParamsBar() {
                   onDoubleClick={() => startEdit(param)}
                   title="Double-click to edit"
                 >
-                  {formatValue(
-                    values[param.key] ?? param.defaultValue,
-                    param.step,
-                  )}
+                  {formatValue(params[param.key], param.step)}
                 </span>
               )}
             </div>
@@ -132,13 +93,8 @@ export function ParamsBar() {
               min={param.min}
               max={param.max}
               step={param.step}
-              value={values[param.key] ?? param.defaultValue}
-              onChange={(e) =>
-                setValues((prev) => ({
-                  ...prev,
-                  [param.key]: parseFloat(e.target.value),
-                }))
-              }
+              value={params[param.key]}
+              onChange={(e) => onParamChange(param.key, parseFloat(e.target.value))}
               aria-label={param.label}
             />
           </div>

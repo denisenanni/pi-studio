@@ -1,4 +1,4 @@
-import { useState, useRef, Fragment } from 'react'
+import { useState, Fragment } from 'react'
 
 interface ParamDef {
   key: string
@@ -28,7 +28,6 @@ export function ParamsBar() {
   )
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editRaw, setEditRaw] = useState<string>('')
-  const inputRef = useRef<HTMLInputElement>(null)
 
   function startEdit(param: ParamDef) {
     setEditingKey(param.key)
@@ -55,7 +54,6 @@ export function ParamsBar() {
               <span className="studio-param-label">{param.label}</span>
               {editingKey === param.key ? (
                 <input
-                  ref={inputRef}
                   className="studio-param-value-input"
                   type="number"
                   min={param.min}

@@ -37,6 +37,10 @@ export function useAudioPlayer(
   useEffect(() => {
     if (!sampleName || !audioContextStartedRef.current) return
 
+    // Cancel any pending play queued for the previous sample so its onload
+    // callback cannot play the wrong buffer if it resolves after this one.
+    pendingPlayRef.current = false
+
     const url = `${import.meta.env.BASE_URL}samples/${sampleName}.flac`
 
     const player = new Player({

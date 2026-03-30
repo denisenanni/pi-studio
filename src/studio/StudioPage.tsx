@@ -160,11 +160,13 @@ export function StudioPage() {
 
   // ── Drag resize: loops width ──────────────────────────
 
-  const loopsDragRef = useRef<{ startX: number; startWidth: number } | null>(null)
+  const loopsDragRef  = useRef<{ startX: number; startWidth: number } | null>(null)
+  const loopsWidthRef = useRef(loopsWidth)
+  useEffect(() => { loopsWidthRef.current = loopsWidth })
 
   const handleLoopsResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
-    loopsDragRef.current = { startX: e.clientX, startWidth: loopsWidth }
+    loopsDragRef.current = { startX: e.clientX, startWidth: loopsWidthRef.current }
 
     const onMove = (ev: MouseEvent) => {
       if (!loopsDragRef.current) return
@@ -179,7 +181,7 @@ export function StudioPage() {
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [loopsWidth])
+  }, [])
 
   const handleLoopsResizeReset = useCallback(() => {
     setLoopsWidth(DEFAULT_LOOPS_WIDTH)
@@ -187,11 +189,13 @@ export function StudioPage() {
 
   // ── Drag resize: code height ──────────────────────────
 
-  const codeDragRef = useRef<{ startY: number; startHeight: number } | null>(null)
+  const codeDragRef   = useRef<{ startY: number; startHeight: number } | null>(null)
+  const codeHeightRef = useRef(codeHeight)
+  useEffect(() => { codeHeightRef.current = codeHeight })
 
   const handleCodeResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
-    codeDragRef.current = { startY: e.clientY, startHeight: codeHeight }
+    codeDragRef.current = { startY: e.clientY, startHeight: codeHeightRef.current }
 
     const onMove = (ev: MouseEvent) => {
       if (!codeDragRef.current) return
@@ -206,7 +210,7 @@ export function StudioPage() {
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [codeHeight])
+  }, [])
 
   // ── State mutations (with undo) ───────────────────────
 
@@ -259,7 +263,7 @@ export function StudioPage() {
     a.href = url
     a.download = 'pi-studio-export.rb'
     a.click()
-    URL.revokeObjectURL(url)
+    setTimeout(() => URL.revokeObjectURL(url), 100)
   }, [])
 
   const handleSelectLoop = useCallback((id: string) => {

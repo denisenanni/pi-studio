@@ -1,12 +1,11 @@
-import { useRef, useState, useCallback, useMemo, useEffect } from 'react'
+import { useRef, useState, useCallback, useMemo, useEffect, memo } from 'react'
 import type { StudioLoop, StudioNote } from './types'
 import { SCALES } from '../data/scales'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const
 const BLACK_KEYS = new Set([1, 3, 6, 8, 10])
-const ROOT_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
 const ROLL_MIDI_TOP    = 84   // C6
 const ROLL_MIDI_BOTTOM = 48   // C3
@@ -16,10 +15,10 @@ const CELL_HEIGHT      = 16   // px per MIDI row
 const VEL_MAX_H        = 40   // px when velocity = 1
 const RESIZE_HANDLE_W  = 6    // px — right-edge resize zone
 
-const SYNTH_OPTIONS  = ['prophet', 'tb303', 'dsaw', 'blade', 'beep']
-const FX_OPTIONS     = ['none', 'reverb', 'echo', 'distortion']
+const SYNTH_OPTIONS  = ['prophet', 'tb303', 'dsaw', 'blade', 'beep'] as const
+const FX_OPTIONS     = ['none', 'reverb', 'echo', 'distortion'] as const
 const STEPS_OPTIONS  = [4, 8, 16, 32] as const
-const SCALE_OPTIONS  = ['major', 'minor', 'dorian', 'pentatonic', 'chromatic']
+const SCALE_OPTIONS  = ['major', 'minor', 'dorian', 'pentatonic', 'chromatic'] as const
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,7 +32,7 @@ function isBlackKey(midi: number): boolean {
 }
 
 function rootToIndex(root: string): number {
-  const idx = ROOT_NAMES.indexOf(root)
+  const idx = NOTE_NAMES.indexOf(root as typeof NOTE_NAMES[number])
   return idx >= 0 ? idx : 0
 }
 
@@ -150,13 +149,15 @@ export function DetailPanel({
   useEffect(() => () => { cancelDragRef.current?.() }, [])
 
   // ── Scroll to C4 on mount ────────────────────────────────
-  const handleRollRef = (el: HTMLDivElement | null) => {
+  // Stable callback (empty deps) so React only calls it when the element
+  // mounts/unmounts — not on every re-render.
+  const handleRollRef = useCallback((el: HTMLDivElement | null) => {
     scrollRef.current = el
-    if (el && el.scrollTop === 0) {
+    if (el) {
       const c4Row = ROLL_MIDI_TOP - 60
       el.scrollTop = c4Row * CELL_HEIGHT - el.clientHeight / 2
     }
-  }
+  }, [])
 
   // ── Keyboard shortcuts ────────────────────────────────────
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -557,7 +558,7 @@ interface NoteBlockProps {
   onContextMenu: (e: React.MouseEvent, note: StudioNote) => void
 }
 
-function NoteBlock({ note, isSelected, dragPreview, onMouseDown, onContextMenu }: NoteBlockProps) {
+const NoteBlock = memo(function NoteBlock({ note, isSelected, dragPreview, onMouseDown, onContextMenu }: NoteBlockProps) {
   const step     = dragPreview ? dragPreview.step     : note.step
   const midi     = dragPreview ? dragPreview.midi     : note.note
   const duration = dragPreview ? dragPreview.duration : note.duration
@@ -584,7 +585,7 @@ function NoteBlock({ note, isSelected, dragPreview, onMouseDown, onContextMenu }
       <div className="studio-note-block-resize-handle" />
     </div>
   )
-}
+})
 
 // ── VelocityLane ─────────────────────────────────────────────────────────────
 
@@ -596,7 +597,7 @@ interface VelocityLaneProps {
   onVelMouseDown: (e: React.MouseEvent, note: StudioNote) => void
 }
 
-function VelocityLane({ notes, steps, selectedNoteId, velBarRefs, onVelMouseDown }: VelocityLaneProps) {
+const VelocityLane = memo(function VelocityLane({ notes, steps, selectedNoteId, velBarRefs, onVelMouseDown }: VelocityLaneProps) {
   const laneWidth = steps * STEP_WIDTH
   return (
     <div className="studio-velocity-lane" style={{ position: 'relative', width: laneWidth + 40 }}>
@@ -621,4 +622,4 @@ function VelocityLane({ notes, steps, selectedNoteId, velBarRefs, onVelMouseDown
       ))}
     </div>
   )
-}
+})

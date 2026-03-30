@@ -456,3 +456,30 @@
 - `src/studio/studio.css` — `.studio-param-value-input` matches existing value style (11 px, accent colour, transparent background, no outline). Bottom border signals edit mode. Spin buttons hidden via `-webkit-appearance` and `-moz-appearance`.
 
 **Build:** `yarn build` passes with zero TypeScript errors.
+
+---
+
+## Task 16 — Fix useAudioPlayer: Tone.js AudioContext Only on User Gesture
+
+### Plan
+
+- [x] 1. Guard `useEffect` Player creation behind `audioContextStartedRef` so no Tone node is created at mount
+- [x] 2. Create Player lazily inside `play()` on cold start (first user interaction)
+- [x] 3. Remove `toneStart()` from `onload` callback — context is already running from the triggering user gesture
+- [x] 4. Add `getContext().state !== 'running'` check before every `toneStart()` call
+- [x] 5. Add `toneStart()` + `audioContextStartedRef = true` to `playOnLoad` (called from click handler)
+- [x] 6. Update `AudioPlayerControls` interface: `playOnLoad: () => Promise<void>`
+- [x] 7. Verify LandingPage and StudioPage have no Tone.js imports (confirmed)
+
+### Review
+
+**File modified:** `src/hooks/useAudioPlayer.ts`
+
+- `audioContextStartedRef` — new ref, starts `false`. Blocks `useEffect` from creating a `Player` (and therefore a Tone.js `AudioContext`) before any user interaction.
+- `useEffect` — guarded by `audioContextStartedRef.current`. Handles preloading on subsequent sample changes after the first interaction. `onload` no longer calls `toneStart()`.
+- `play()` — always calls `toneStart()` (guarded by `getContext().state` check). Sets `audioContextStartedRef.current = true`. On cold start creates the `Player` lazily; subsequent calls reuse the preloaded player from `useEffect`.
+- `playOnLoad()` — now `async`, calls `toneStart()` and sets `audioContextStartedRef.current = true` inside the user gesture before the caller changes `selectedSample`.
+
+**Verified clean:** `LandingPage.tsx` and `StudioPage.tsx` have no Tone.js imports. `main.tsx` lazy-loads both routes.
+
+**Build:** `yarn build` passes with zero TypeScript errors.

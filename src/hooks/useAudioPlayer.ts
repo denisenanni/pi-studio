@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Player, gainToDb, start as toneStart } from 'tone'
+import { Player, gainToDb, start as toneStart, getContext } from 'tone'
 
 export interface AudioPlayerControls {
   play: () => Promise<void>
-  playOnLoad: () => void
+  // Async because it must resume the AudioContext inside the user gesture
+  // before the caller changes selectedSample.
+  playOnLoad: () => Promise<void>
   stop: () => void
   isPlaying: boolean
   error: string | null
@@ -16,8 +18,11 @@ export function useAudioPlayer(
 ): AudioPlayerControls {
   const playerRef = useRef<Player | null>(null)
   const pendingPlayRef = useRef(false)
+  // Tracks whether the user has ever triggered a play — guards Player creation
+  // in useEffect so the Tone.js AudioContext is never initialised on mount.
+  const audioContextStartedRef = useRef(false)
 
-  // Always-current refs so the onload callback captures the latest values.
+  // Always-current refs so callbacks never close over stale values.
   const rateRef = useRef(rate)
   const ampRef = useRef(amp)
   rateRef.current = rate
@@ -26,21 +31,25 @@ export function useAudioPlayer(
   const [isPlaying, setIsPlaying] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Preload the next buffer only after the AudioContext has been started by
+  // a user gesture.  On cold start audioContextStartedRef is false, so no
+  // Player (and therefore no AudioContext) is created until the user interacts.
   useEffect(() => {
-    if (!sampleName) return
+    if (!sampleName || !audioContextStartedRef.current) return
 
     const url = `${import.meta.env.BASE_URL}samples/${sampleName}.flac`
 
     const player = new Player({
       url,
-      onload: async () => {
+      onload: () => {
         setError(null)
         if (pendingPlayRef.current) {
           pendingPlayRef.current = false
-          await toneStart()
           player.playbackRate = rateRef.current
           player.volume.value =
             ampRef.current === 0 ? -Infinity : gainToDb(ampRef.current)
+          // No toneStart() here — AudioContext was already resumed by the
+          // user-gesture handler (play / playOnLoad) that set pendingPlayRef.
           player.start()
           setIsPlaying(true)
         }
@@ -64,26 +73,67 @@ export function useAudioPlayer(
   }, [sampleName])
 
   const play = useCallback(async (): Promise<void> => {
+    // toneStart() is called exclusively here — inside a user-gesture handler.
+    // getContext().state check avoids redundant resume calls when already running.
+    if (getContext().state !== 'running') {
+      await toneStart()
+    }
+    audioContextStartedRef.current = true
+
     const player = playerRef.current
-    if (!player) return
+
+    if (!player) {
+      // Cold start: AudioContext just became safe to use, so create the Player
+      // lazily here rather than at component mount.
+      const url = `${import.meta.env.BASE_URL}samples/${sampleName}.flac`
+      pendingPlayRef.current = true
+
+      const newPlayer = new Player({
+        url,
+        onload: () => {
+          setError(null)
+          if (pendingPlayRef.current) {
+            pendingPlayRef.current = false
+            newPlayer.playbackRate = rateRef.current
+            newPlayer.volume.value =
+              ampRef.current === 0 ? -Infinity : gainToDb(ampRef.current)
+            newPlayer.start()
+            setIsPlaying(true)
+          }
+        },
+        onerror: () => {
+          pendingPlayRef.current = false
+          setError('File not found — add FLAC to public/samples/')
+          setIsPlaying(false)
+        },
+      }).toDestination()
+
+      newPlayer.onstop = () => setIsPlaying(false)
+      playerRef.current = newPlayer
+      return
+    }
 
     if (!player.loaded) {
       pendingPlayRef.current = true
       return
     }
 
-    await toneStart()
     if (player.state === 'started') player.stop()
     player.playbackRate = rateRef.current
     player.volume.value =
       ampRef.current === 0 ? -Infinity : gainToDb(ampRef.current)
     player.start()
     setIsPlaying(true)
-  }, [])
+  }, [sampleName])
 
-  // Queue autoplay for when the next buffer finishes loading.
-  // Call this before updating selectedSample so the new player picks it up.
-  const playOnLoad = useCallback((): void => {
+  // Call this inside a user-gesture handler immediately before changing
+  // selectedSample.  It resumes the AudioContext and queues autoplay so the
+  // next buffer plays as soon as it finishes loading.
+  const playOnLoad = useCallback(async (): Promise<void> => {
+    if (getContext().state !== 'running') {
+      await toneStart()
+    }
+    audioContextStartedRef.current = true
     pendingPlayRef.current = true
   }, [])
 

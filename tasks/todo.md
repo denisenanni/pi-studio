@@ -434,3 +434,25 @@
 - `src/main.tsx` — `/studio` route added.
 
 **Build:** `yarn build` passes with zero TypeScript errors. Browser at `/browser` completely unaffected.
+
+---
+
+## Task 15 — ParamsBar: Inline Numeric Input on Double-Click
+
+### Plan
+
+- [x] 1. Add `editingKey: string | null` and `editRaw: string` state to `ParamsBar`
+- [x] 2. On double-click on `studio-param-value` span → set `editingKey` + `editRaw`
+- [x] 3. Render `<input type="number">` with `autoFocus`, correct `min`/`max`/`step` when editing
+- [x] 4. On `Enter` or `blur` → parse, clamp to `[min, max]`, commit, exit edit mode
+- [x] 5. On `Escape` → cancel without changing value
+- [x] 6. Style inline input to match display (no spin buttons, accent color, underline border)
+
+### Review
+
+**Files modified:**
+
+- `src/studio/ParamsBar.tsx` — added `editingKey`/`editRaw` state and `inputRef`. `startEdit` sets editing state. `commitEdit` parses the raw string, clamps to `[param.min, param.max]` via `Math.min/max`, updates values, clears `editingKey`. Value span swaps for `<input type="number">` when `editingKey === param.key`; `autoFocus` handles focus automatically. `onKeyDown` handles Enter (commit) and Escape (cancel). `onBlur` commits (covers click-away). No `any`.
+- `src/studio/studio.css` — `.studio-param-value-input` matches existing value style (11 px, accent colour, transparent background, no outline). Bottom border signals edit mode. Spin buttons hidden via `-webkit-appearance` and `-moz-appearance`.
+
+**Build:** `yarn build` passes with zero TypeScript errors.

@@ -789,6 +789,28 @@
 .studio-param-value {
   font-size: 11px;
   color: var(--accent, #7cfc7c);
+  cursor: default;
+}
+
+.studio-param-value-input {
+  width: 48px;
+  font-size: 11px;
+  font-family: inherit;
+  color: var(--accent, #7cfc7c);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--accent, #7cfc7c);
+  outline: none;
+  text-align: right;
+  padding: 0;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.studio-param-value-input::-webkit-outer-spin-button,
+.studio-param-value-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .studio-param-slider {

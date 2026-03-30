@@ -1,4 +1,4 @@
-import { useState, Fragment } from 'react'
+import { useState, useRef, Fragment } from 'react'
 
 interface ParamDef {
   key: string
@@ -26,6 +26,24 @@ export function ParamsBar() {
   const [values, setValues] = useState<Record<string, number>>(
     () => Object.fromEntries(PARAMS.map((p) => [p.key, p.defaultValue]))
   )
+  const [editingKey, setEditingKey] = useState<string | null>(null)
+  const [editRaw, setEditRaw] = useState<string>('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  function startEdit(param: ParamDef) {
+    setEditingKey(param.key)
+    setEditRaw(formatValue(values[param.key] ?? param.defaultValue, param.step))
+    // focus happens via autoFocus on the rendered input
+  }
+
+  function commitEdit(param: ParamDef) {
+    const parsed = parseFloat(editRaw)
+    if (!isNaN(parsed)) {
+      const clamped = Math.min(param.max, Math.max(param.min, parsed))
+      setValues((prev) => ({ ...prev, [param.key]: clamped }))
+    }
+    setEditingKey(null)
+  }
 
   return (
     <div className="studio-params-bar">
@@ -35,7 +53,33 @@ export function ParamsBar() {
           <div className="studio-param">
             <div className="studio-param-header">
               <span className="studio-param-label">{param.label}</span>
-              <span className="studio-param-value">{formatValue(values[param.key] ?? param.defaultValue, param.step)}</span>
+              {editingKey === param.key ? (
+                <input
+                  ref={inputRef}
+                  className="studio-param-value-input"
+                  type="number"
+                  min={param.min}
+                  max={param.max}
+                  step={param.step}
+                  value={editRaw}
+                  autoFocus
+                  onChange={(e) => setEditRaw(e.target.value)}
+                  onBlur={() => commitEdit(param)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); commitEdit(param) }
+                    if (e.key === 'Escape') { e.preventDefault(); setEditingKey(null) }
+                  }}
+                  aria-label={`${param.label} value`}
+                />
+              ) : (
+                <span
+                  className="studio-param-value"
+                  onDoubleClick={() => startEdit(param)}
+                  title="Double-click to edit"
+                >
+                  {formatValue(values[param.key] ?? param.defaultValue, param.step)}
+                </span>
+              )}
             </div>
             <input
               className="studio-param-slider"

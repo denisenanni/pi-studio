@@ -518,3 +518,34 @@
 **`src/studio/studio.css`** — pointer-events re-enabled on note blocks; `.selected`, `.dragging` states; `.studio-note-block-resize-handle`; `.studio-roll-row.non-scale`; `.studio-vel-bar.selected`; `:focus` outline suppressed.
 
 **Build:** `yarn build` passes with zero TypeScript errors.
+
+---
+
+## Task 18 — Live Code Generation
+
+### Plan
+
+- [x] 1. Create `src/studio/codeGen.ts` — pure function `generateCode(state: StudioSnapshot): string`
+  - MIDI → Sonic Pi note name helper: `NOTE_NAMES = ['c','cs','d','ds','e','f','fs','g','gs','a','as','b']`, octave = `Math.floor(midi/12) - 1`
+  - `use_bpm <bpm>` header
+  - One `live_loop` block per non-muted loop
+  - Synth loops: for each note sorted by step, emit `synth :<synth>, note: :<noteName><octave>` with amp/cutoff/attack/release params, then `sleep <stepDur>`
+  - Sample loops: for each active step, emit `sample :<sample>` + `sleep <stepDur>`
+  - FX wrapping: if `loop.fx !== 'none'`, wrap body in `with_fx :<fx> do ... end`
+  - Step duration = `(beatsPerBar / steps) * bars` beats
+  - If no non-muted loops, emit minimal placeholder
+- [x] 2. Update `CodeOutput.tsx` — accept `code: string` prop; drop `PLACEHOLDER_CODE` constant; compute `tokenisedLines` from prop via `useMemo`; copy prop value in `handleCopy`
+- [x] 3. Update `StudioPage.tsx` — `const code = useMemo(() => generateCode(state), [state])`; pass `code` to `<CodeOutput>`; `handleExport` uses `generateCode(state)` for the real code
+- [x] 4. Build check — `yarn build`, no TypeScript errors, no `any`
+
+### Review
+
+**Files created/modified:**
+
+- `src/studio/codeGen.ts` — new pure module. `midiToNoteName` converts MIDI numbers to Sonic Pi note symbols (e.g. `72` → `c5`). `stepDuration` computes beat length per step. `buildSynthBody` sorts notes by step, emits `synth` + gap sleeps; emits a full rest if no notes. `buildSampleBody` iterates every step, emits `sample` on active steps plus `sleep` for every step. `wrapWithFx` indents body lines inside `with_fx :fx do ... end`. `generateCode` filters to non-muted loops, assembles `use_bpm` header + one block per loop. No side effects, no React imports, no `any`.
+- `src/studio/CodeOutput.tsx` — `PLACEHOLDER_CODE` and `TOKENISED_LINES` constants removed. `code: string` added to props. `tokenisedLines` computed with `useMemo([code])`. `handleCopy` copies `code` prop (deps updated to `[code]`).
+- `src/studio/StudioPage.tsx` — `useMemo` import added. `generateCode` import added. `const code = useMemo(() => generateCode(state), [state])` in derived section. `code` passed to `<CodeOutput>`. `handleExport` now uses `generateCode(state)` instead of hardcoded placeholder.
+
+**Build:** `yarn build` passes with zero TypeScript errors. No `any`.
+
+**Security notes:** `generateCode` is a pure string builder. Loop names and synth/sample strings come from user-controlled state but are only ever rendered as text in the code panel or written to a `.rb` download file — never eval'd, injected into the DOM as HTML, or sent to a server. No sensitive data is exposed.

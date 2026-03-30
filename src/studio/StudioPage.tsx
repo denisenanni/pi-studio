@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import './studio.css'
 import type { StudioState, StudioLoop, StudioNote, StudioSnapshot } from './types'
 import { Transport } from './Transport'
@@ -7,6 +7,7 @@ import { LoopsPanel } from './LoopsPanel'
 import { DetailPanel } from './DetailPanel'
 import { ParamsBar } from './ParamsBar'
 import { CodeOutput } from './CodeOutput'
+import { generateCode } from './codeGen'
 
 // ── localStorage keys ─────────────────────────────────────
 
@@ -256,15 +257,14 @@ export function StudioPage() {
   }, [])
 
   const handleExport = useCallback(() => {
-    // Placeholder — code generation in a later task
-    const blob = new Blob(['# Pi Studio export\nuse_bpm 120\n'], { type: 'text/plain' })
+    const blob = new Blob([generateCode(state)], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = 'pi-studio-export.rb'
     a.click()
     setTimeout(() => URL.revokeObjectURL(url), 100)
-  }, [])
+  }, [state])
 
   const handleSelectLoop = useCallback((id: string) => {
     setState((s) => ({ ...s, selectedLoopId: id }))
@@ -388,6 +388,7 @@ export function StudioPage() {
   // ── Derived ────────────────────────────────────────────
 
   const selectedLoop = state.loops.find((l) => l.id === state.selectedLoopId) ?? null
+  const code = useMemo(() => generateCode(state), [state])
 
   return (
     <div className="studio-page">
@@ -451,6 +452,7 @@ export function StudioPage() {
           <ParamsBar />
 
           <CodeOutput
+            code={code}
             height={codeHeight}
             collapsed={codeCollapsed}
             onToggleCollapse={handleToggleCodeCollapse}

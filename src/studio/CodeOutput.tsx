@@ -1,6 +1,7 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 
 interface CodeOutputProps {
+  code: string
   height: number
   collapsed: boolean
   onToggleCollapse: () => void
@@ -76,22 +77,8 @@ function tokeniseLine(line: string): Token[] {
   return tokens
 }
 
-const PLACEHOLDER_CODE = `use_bpm 120
-
-live_loop :melody do
-  with_fx :reverb, mix: 0.4 do
-    synth :prophet, note: :c5, cutoff: 80, release: 0.5
-  end
-end
-
-live_loop :beat do
-  sample :bd_haus
-  sleep 1
-end`
-
-const TOKENISED_LINES: Token[][] = PLACEHOLDER_CODE.split('\n').map(tokeniseLine)
-
-export function CodeOutput({ height, collapsed, onToggleCollapse, onResizeStart }: CodeOutputProps) {
+export function CodeOutput({ code, height, collapsed, onToggleCollapse, onResizeStart }: CodeOutputProps) {
+  const tokenisedLines = useMemo(() => code.split('\n').map(tokeniseLine), [code])
   const [copied, setCopied] = useState(false)
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -100,12 +87,12 @@ export function CodeOutput({ height, collapsed, onToggleCollapse, onResizeStart 
   }, [])
 
   const handleCopy = useCallback(() => {
-    void navigator.clipboard.writeText(PLACEHOLDER_CODE).then(() => {
+    void navigator.clipboard.writeText(code).then(() => {
       setCopied(true)
       if (copyTimerRef.current !== null) clearTimeout(copyTimerRef.current)
       copyTimerRef.current = setTimeout(() => setCopied(false), 1200)
     })
-  }, [])
+  }, [code])
 
   return (
     <div className="studio-code-panel" style={{ height: collapsed ? 36 : height }}>
@@ -135,7 +122,7 @@ export function CodeOutput({ height, collapsed, onToggleCollapse, onResizeStart 
       {!collapsed && (
         <div className="studio-code-body">
           <pre className="studio-code-pre">
-            {TOKENISED_LINES.map((tokens, lineIdx) => (
+            {tokenisedLines.map((tokens, lineIdx) => (
               <div key={lineIdx}>
                 {tokens.map((tok, tokIdx) => (
                   <span key={tokIdx} className={`tok-${tok.type}`}>{tok.text}</span>

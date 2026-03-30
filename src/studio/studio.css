@@ -696,10 +696,9 @@
 /* Note block */
 .studio-note-block {
   position: absolute;
-  top: 1px;
   height: 14px;
   background: var(--accent, #7cfc7c);
-  opacity: 0.8;
+  opacity: 0.85;
   border-radius: 1px;
   overflow: hidden;
   display: flex;
@@ -708,7 +707,28 @@
   font-size: 8px;
   color: #111111;
   font-weight: 600;
-  pointer-events: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.studio-note-block.selected {
+  background: #afffaf;
+  opacity: 1;
+  outline: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.studio-note-block.dragging {
+  opacity: 0.55;
+}
+
+.studio-note-block-resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 6px;
+  height: 100%;
+  cursor: ew-resize;
+  flex-shrink: 0;
 }
 
 /* Velocity lane */
@@ -744,6 +764,25 @@
   opacity: 0.5;
   border-radius: 1px 1px 0 0;
   cursor: ns-resize;
+}
+
+.studio-vel-bar.selected {
+  opacity: 1;
+  background: #afffaf;
+}
+
+/* Scale-locked non-scale rows */
+.studio-roll-row.non-scale {
+  background: #0a0a0a;
+}
+
+.studio-roll-row.non-scale.black-key {
+  background: #070707;
+}
+
+/* Piano roll focus ring */
+.studio-piano-roll:focus {
+  outline: none;
 }
 
 /* ── Params Bar ──────────────────────────────────────────── */

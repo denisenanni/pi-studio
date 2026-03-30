@@ -482,4 +482,39 @@
 
 **Verified clean:** `LandingPage.tsx` and `StudioPage.tsx` have no Tone.js imports. `main.tsx` lazy-loads both routes.
 
+---
+
+## Task 17 — Piano Roll Note Editing
+
+### Plan
+
+- [x] 1. **`types.ts`** — add `selectedNoteId: string | null` to `StudioSnapshot` and `StudioState`
+- [x] 2. **`StudioPage.tsx`** — update `makeInitialState` + `snapshot()`; add note action handlers (`addNote`, `deleteNote`, `moveNote`, `resizeNote`, `setVelocity`, `selectNote`) with `pushUndo`; pass new props to `DetailPanel`
+- [x] 3. **`DetailPanel.tsx`** — update props interface; wire click-to-select / right-click-to-delete on existing notes; click-to-add on empty grid cells; `tabIndex` + keyboard handler (Delete, Escape, Arrow keys)
+- [x] 4. **`DetailPanel.tsx`** — move drag: `mousedown` on note body → `window` mousemove/mouseup; ghost preview via separate `dragPreview` state; commit on mouseup
+- [x] 5. **`DetailPanel.tsx`** — resize drag: `mousedown` on right 6 px of note → window mousemove/mouseup; `ew-resize` cursor on hover; commit on mouseup
+- [x] 6. **`DetailPanel.tsx`** — velocity lane drag: `mousedown` on bar → mousemove updates height in real time via DOM ref; commit on mouseup; clicking bar selects its note
+- [x] 7. **Scale lock** — compute in-scale MIDI set from `src/data/scales.ts`; dim non-scale rows; block add/snap vertical drag to nearest in-scale note; `scaleRoot` prop added
+- [x] 8. **Step grid sync** — `deriveActiveSteps` called in `handleAddNote`, `handleDeleteNote`, `handleMoveNote`
+- [x] 9. **`studio.css`** — note block states (default, selected, dragging); resize handle; scale lock row dimming; velocity bar selected state
+- [x] 10. **Build check** — `yarn build` passes, no TypeScript `any`, Browser unaffected
+
+### Review
+
+**`src/studio/types.ts`** — `selectedNoteId: string | null` added to `StudioState` only (not `StudioSnapshot`, so undo/redo does not restore selection).
+
+**`src/studio/StudioPage.tsx`** — `deriveActiveSteps` helper; 6 note handlers all going through `pushUndo`; `handleSelectNote` does NOT push undo (selection is ephemeral). `activeSteps` re-derived from notes on every add/delete/move. 9 new props passed to `DetailPanel`.
+
+**`src/studio/DetailPanel.tsx`** — Full rewrite:
+- `handleGridMouseDown` — event-delegated on the grid container; ignores clicks on `.studio-note-block`; computes step + MIDI from pixel position; blocks non-scale rows when scale lock on; creates note via `crypto.randomUUID()`.
+- `handleNoteMouseDown` — `stopPropagation`; right-6px → resize, otherwise → move; sets `dragRef` with captured start values; `onMove`/`onUp` registered on `window`; `cancelDragRef` allows Escape to abort mid-drag.
+- `onMove` — recomputes preview from delta, snaps to scale if lock on; calls `setDragPreview` for re-render.
+- `onUp` — final position computed from mouse at release (consistent with preview), calls `onMoveNote`/`onResizeNote`, clears drag state.
+- `handleVelMouseDown` — live DOM height update via `velBarRefs` map during drag; commits `onSetVelocity` on mouseup; Escape restores original height.
+- `handleKeyDown` — Delete/Backspace, Escape, Arrow keys; ArrowUp/Down snap to scale when lock on.
+- `NoteBlock` — renders at `dragPreview` position when dragging; `.selected`/`.dragging` class; resize handle div with `ew-resize` cursor.
+- `VelocityLane` — ref callback registers each bar in `velBarRefs`; `.selected` class on selected note's bar.
+
+**`src/studio/studio.css`** — pointer-events re-enabled on note blocks; `.selected`, `.dragging` states; `.studio-note-block-resize-handle`; `.studio-roll-row.non-scale`; `.studio-vel-bar.selected`; `:focus` outline suppressed.
+
 **Build:** `yarn build` passes with zero TypeScript errors.

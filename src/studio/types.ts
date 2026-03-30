@@ -36,6 +36,7 @@ export type StudioState = StudioSnapshot & {
   isPlaying: boolean
   currentBar: number
   currentStep: number
+  selectedNoteId: string | null   // ephemeral UI selection — not stored in undo snapshot
   undoStack: StudioSnapshot[]
   redoStack: StudioSnapshot[]
 }

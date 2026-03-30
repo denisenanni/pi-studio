@@ -130,11 +130,14 @@ export function useAudioPlayer(
   // selectedSample.  It resumes the AudioContext and queues autoplay so the
   // next buffer plays as soon as it finishes loading.
   const playOnLoad = useCallback(async (): Promise<void> => {
+    // Set flags synchronously so the sampleName useEffect that fires immediately
+    // after the caller's setState() sees them — the Promise is never awaited by
+    // callers, so anything after an `await` would be too late.
+    audioContextStartedRef.current = true
+    pendingPlayRef.current = true
     if (getContext().state !== 'running') {
       await toneStart()
     }
-    audioContextStartedRef.current = true
-    pendingPlayRef.current = true
   }, [])
 
   const stop = useCallback((): void => {

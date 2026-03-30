@@ -95,6 +95,14 @@ const PLACEHOLDER_LOOPS: StudioLoop[] = [
   },
 ]
 
+function deriveActiveSteps(notes: StudioNote[], totalSteps: number): boolean[] {
+  const active: boolean[] = Array.from({ length: totalSteps }).map(() => false)
+  for (const n of notes) {
+    if (n.step >= 0 && n.step < totalSteps) active[n.step] = true
+  }
+  return active
+}
+
 function makeInitialState(): StudioState {
   return {
     bpm: 120,
@@ -104,6 +112,7 @@ function makeInitialState(): StudioState {
     isPlaying: false,
     currentBar: 1,
     currentStep: 1,
+    selectedNoteId: null,
     scaleLock: false,
     scaleRoot: 'C',
     scaleName: 'minor',
@@ -304,6 +313,65 @@ export function StudioPage() {
     setState((s) => ({ ...pushUndo(s), scaleName: name }))
   }, [pushUndo])
 
+  // ── Note actions ───────────────────────────────────────
+
+  const handleAddNote = useCallback((loopId: string, note: StudioNote) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) => {
+        if (l.id !== loopId) return l
+        const notes = [...l.notes, note]
+        return { ...l, notes, activeSteps: deriveActiveSteps(notes, l.steps) }
+      }),
+    }))
+  }, [pushUndo])
+
+  const handleDeleteNote = useCallback((loopId: string, noteId: string) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) => {
+        if (l.id !== loopId) return l
+        const notes = l.notes.filter((n) => n.id !== noteId)
+        return { ...l, notes, activeSteps: deriveActiveSteps(notes, l.steps) }
+      }),
+    }))
+  }, [pushUndo])
+
+  const handleMoveNote = useCallback((loopId: string, noteId: string, step: number, midiNote: number) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) => {
+        if (l.id !== loopId) return l
+        const notes = l.notes.map((n) => n.id === noteId ? { ...n, step, note: midiNote } : n)
+        return { ...l, notes, activeSteps: deriveActiveSteps(notes, l.steps) }
+      }),
+    }))
+  }, [pushUndo])
+
+  const handleResizeNote = useCallback((loopId: string, noteId: string, duration: number) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) => {
+        if (l.id !== loopId) return l
+        return { ...l, notes: l.notes.map((n) => n.id === noteId ? { ...n, duration } : n) }
+      }),
+    }))
+  }, [pushUndo])
+
+  const handleSetVelocity = useCallback((loopId: string, noteId: string, velocity: number) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) => {
+        if (l.id !== loopId) return l
+        return { ...l, notes: l.notes.map((n) => n.id === noteId ? { ...n, velocity } : n) }
+      }),
+    }))
+  }, [pushUndo])
+
+  const handleSelectNote = useCallback((noteId: string | null) => {
+    setState((s) => ({ ...s, selectedNoteId: noteId }))
+  }, [])
+
   const handleToggleWave = useCallback(() => setWaveCollapsed((v) => !v), [])
   const handleToggleCodeCollapse = useCallback(() => setCodeCollapsed((v) => !v), [])
   const handleToggleLoopsCollapse = useCallback(() => {
@@ -361,11 +429,19 @@ export function StudioPage() {
             loop={selectedLoop}
             scaleLock={state.scaleLock}
             scaleName={state.scaleName}
+            scaleRoot={state.scaleRoot}
+            selectedNoteId={state.selectedNoteId}
             onScaleLockToggle={handleScaleLockToggle}
             onScaleNameChange={handleScaleNameChange}
             onSynthChange={handleSynthChange}
             onFxChange={handleFxChange}
             onStepsChange={handleStepsChange}
+            onAddNote={handleAddNote}
+            onDeleteNote={handleDeleteNote}
+            onMoveNote={handleMoveNote}
+            onResizeNote={handleResizeNote}
+            onSetVelocity={handleSetVelocity}
+            onSelectNote={handleSelectNote}
           />
 
           <ParamsBar />

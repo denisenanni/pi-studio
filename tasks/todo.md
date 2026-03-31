@@ -696,3 +696,27 @@
 **`src/studio/LoopsPanel.tsx`** — `title` attrs removed from S/M/× (replaced by Tooltip). Dynamic text: S → `'Solo'`/`'Unsolo'`; M → `'Mute'`/`'Unmute'`; × → `'Delete loop'`/`'Confirm delete'`.
 
 **Build:** `yarn build` passes with zero TypeScript errors. No `any`.
+
+---
+
+## Task 24 — Fix AudioContext Autoplay Warning
+
+### Plan
+
+- [x] 1. **Root-cause analysis** — Tone.js v15 `index.js` has module-level constants (`Transport`, `Destination`, `Listener`, `Draw`) that call `getContext()` immediately on `import * as Tone from 'tone'`, creating an `AudioContext` before any user gesture → browser "AudioContext was not allowed to start" warning.
+- [x] 2. **`usePlayback.ts`** — replace static `import * as Tone` with `import type * as ToneNS`; add module-level `let _tone` / `let _buildEffect` cache; lazy-load both inside `play()` via `await import('tone')` and `await import('../hooks/useFxPlayer')` (first call only); update all Tone references to use `_tone!` / local `Tone = _tone` aliases; remove static `import { buildEffect }`.
+- [x] 3. **`WaveformStrip.tsx`** — change to `import type * as Tone from 'tone'`; only used as a type annotation for the `analyser` prop, never at runtime.
+- [x] 4. **`DetailPanel.tsx`** — remove `import * as Tone from 'tone'`; in `SampleLoopView.handlePreview` add `const Tone = await import('tone')` at start; change `playerRef` type to `{ dispose: () => void } | null`.
+- [x] 5. **Build check** — `yarn tsc --noEmit` and `yarn build` pass, zero errors.
+
+### Review
+
+**Root cause:** Tone.js v15's `index.js` runs `export const Transport = getContext().transport` (and Destination, Listener, Draw) at module evaluation time. `getContext()` creates a real `AudioContext` (replacing the internal `DummyContext`) on first call — so any `import * as Tone` evaluates these exports and creates an AudioContext immediately, outside a user gesture.
+
+**`src/studio/usePlayback.ts`** — Module-level `let _tone: typeof ToneNS | null = null` and `let _buildEffect`. In `play()`: `if (!_tone) { _tone = await import('tone'); _buildEffect = ... }`. All sync functions (`stop()`, BPM effect, cleanup, helpers) access `_tone!` (safe: guarded by `audioContextStartedRef.current` which is only set after `play()` loads and starts Tone). `import type * as ToneNS from 'tone'` provides compile-time types without runtime module evaluation.
+
+**`src/studio/WaveformStrip.tsx`** — `import type` — TypeScript erases this at compile time; Tone.js runtime module never loaded by this file.
+
+**`src/studio/DetailPanel.tsx`** — `await import('tone')` inside `handlePreview` (a click handler = user gesture). Dynamic import resolves from cache if `usePlayback.play()` already ran; the AudioContext creation from Tone's module-level code happens within the user gesture activation window. `playerRef` typed as `{ dispose: () => void } | null` — only needs `dispose()` at cleanup sites.
+
+**Build:** `yarn build` passes. Zero TypeScript errors. No `any`.

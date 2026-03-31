@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import * as Tone from 'tone'
+import type * as Tone from 'tone'
 
 interface WaveformStripProps {
   collapsed: boolean

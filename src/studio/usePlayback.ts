@@ -1,30 +1,41 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import * as Tone from 'tone'
+import type * as ToneNS from 'tone'
 import type { StudioState } from './types'
 import { getSonicInstance, initSuperSonic, ensureSynthDef, getNextNodeId } from '../hooks/useSuperSonic'
-import { buildEffect } from '../hooks/useFxPlayer'
+
+// ── Lazy Tone module cache ────────────────────────────────────────────────────
+// Tone.js must NOT be imported statically. Its index.js has module-level exports
+// such as `export const Transport = getContext().transport` that eagerly call
+// getContext(), which creates an AudioContext outside any user gesture →
+// browser "AudioContext was not allowed to start" warning.
+// We load it dynamically on the first call to play() instead.
+
+let _tone: typeof ToneNS | null = null
+
+type BuildEffectFn = (fxKey: string, params: Record<string, number>, mix: number) => FxNode
+let _buildEffect: BuildEffectFn | null = null
 
 // ── Types ─────────────────────────────────────────────────
 
 type FxNode =
-  | Tone.Freeverb
-  | Tone.FeedbackDelay
-  | Tone.Distortion
-  | Tone.BitCrusher
-  | Tone.AutoFilter
-  | Tone.Tremolo
-  | Tone.AutoPanner
-  | Tone.Chorus
-  | Tone.PitchShift
-  | Tone.Filter
-  | Tone.Compressor
-  | Tone.Limiter
-  | Tone.Volume
-  | Tone.Panner
-  | Tone.EQ3
+  | ToneNS.Freeverb
+  | ToneNS.FeedbackDelay
+  | ToneNS.Distortion
+  | ToneNS.BitCrusher
+  | ToneNS.AutoFilter
+  | ToneNS.Tremolo
+  | ToneNS.AutoPanner
+  | ToneNS.Chorus
+  | ToneNS.PitchShift
+  | ToneNS.Filter
+  | ToneNS.Compressor
+  | ToneNS.Limiter
+  | ToneNS.Volume
+  | ToneNS.Panner
+  | ToneNS.EQ3
 
 interface SampleEntry {
-  player: Tone.Player
+  player: ToneNS.Player
   fxNode: FxNode | null
   fxKey: string   // the fx value when fxNode was built — used to detect changes
 }
@@ -43,17 +54,20 @@ export interface PlaybackControls {
   stop: () => void
   isPlaying: boolean
   currentStep: number
-  analyser: Tone.Analyser | null
+  analyser: ToneNS.Analyser | null
 }
 
 export function usePlayback(state: StudioState): PlaybackControls {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
-  const [analyser, setAnalyser] = useState<Tone.Analyser | null>(null)
+  const [analyser, setAnalyser] = useState<ToneNS.Analyser | null>(null)
 
   // Always-current state ref so the Tone.Transport callback never closes over stale values
   const stateRef = useRef<StudioState>(state)
   stateRef.current = state
+
+  // Guard: no Tone.js code runs until the user presses Play for the first time
+  const audioContextStartedRef = useRef(false)
 
   // Track the global tick counter (advances on every Transport repeat)
   const tickRef = useRef(0)
@@ -62,19 +76,25 @@ export function usePlayback(state: StudioState): PlaybackControls {
   const sampleCacheRef = useRef<Map<string, SampleEntry>>(new Map())
 
   // Tone.Analyser for waveform strip (also stored in state for reactive prop passing)
-  const analyserRef = useRef<Tone.Analyser | null>(null)
+  const analyserRef = useRef<ToneNS.Analyser | null>(null)
 
   // ── BPM sync while playing ────────────────────────────
+  // Only runs after AudioContext has been started by user gesture
 
   useEffect(() => {
-    if (isPlaying) {
-      Tone.getTransport().bpm.value = state.bpm
+    if (audioContextStartedRef.current && isPlaying && _tone) {
+      _tone.getTransport().bpm.value = state.bpm
     }
   }, [state.bpm, isPlaying])
 
   // ── Helpers ───────────────────────────────────────────
+  // These are only ever called from the Transport callback (post-play) so
+  // _tone and _buildEffect are guaranteed non-null.
 
-  function getOrCreateSamplePlayer(loopId: string, sampleName: string, fxKey: string, loopParams: Record<string, number>): Tone.Player {
+  function getOrCreateSamplePlayer(loopId: string, sampleName: string, fxKey: string, loopParams: Record<string, number>): ToneNS.Player {
+    const Tone = _tone!
+    const buildEffect = _buildEffect!
+
     const existing = sampleCacheRef.current.get(loopId)
 
     // Reuse if same sample + same fx
@@ -95,7 +115,7 @@ export function usePlayback(state: StudioState): PlaybackControls {
     }
 
     let fxNode: FxNode | null = null
-    let player: Tone.Player
+    let player: ToneNS.Player
 
     if (fxKey !== 'none') {
       fxNode = buildEffect(fxKey, fxParams, reverbMix)
@@ -125,6 +145,8 @@ export function usePlayback(state: StudioState): PlaybackControls {
   // ── stop() ───────────────────────────────────────────
 
   const stop = useCallback(() => {
+    if (!audioContextStartedRef.current || !_tone) return
+    const Tone = _tone
     const transport = Tone.getTransport()
     transport.stop()
     transport.cancel()
@@ -153,10 +175,20 @@ export function usePlayback(state: StudioState): PlaybackControls {
   // ── play() ───────────────────────────────────────────
 
   const play = useCallback(async (): Promise<void> => {
-    // Resume AudioContext inside user gesture
+    // Lazy-load Tone.js on first play — must happen before any other Tone calls.
+    // Dynamic import ensures the module (and its module-level getContext() calls)
+    // only runs here, inside a user gesture.
+    if (!_tone) {
+      _tone = await import('tone')
+      _buildEffect = ((await import('../hooks/useFxPlayer')) as { buildEffect: BuildEffectFn }).buildEffect
+    }
+    const Tone = _tone
+
+    // Resume AudioContext inside user gesture — must happen before audio operations
     if (Tone.getContext().state !== 'running') {
       await Tone.start()
     }
+    audioContextStartedRef.current = true
 
     // Lazily init SuperSonic
     initSuperSonic()
@@ -249,9 +281,12 @@ export function usePlayback(state: StudioState): PlaybackControls {
   }, [stop])
 
   // ── Cleanup on unmount ────────────────────────────────
+  // Only touch Tone.js if it was ever started — avoids AudioContext warnings on unmount
 
   useEffect(() => {
     return () => {
+      if (!audioContextStartedRef.current || !_tone) return
+      const Tone = _tone
       Tone.getTransport().stop()
       Tone.getTransport().cancel()
       disposeSampleCache()
@@ -260,7 +295,6 @@ export function usePlayback(state: StudioState): PlaybackControls {
         analyserRef.current.dispose()
         analyserRef.current = null
       }
-      // Note: setAnalyser not called here — hook is unmounting, React state is irrelevant
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

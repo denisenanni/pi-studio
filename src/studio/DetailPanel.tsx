@@ -1,5 +1,4 @@
 import { useRef, useState, useCallback, useMemo, useEffect, memo } from 'react'
-import * as Tone from 'tone'
 import type { StudioLoop, StudioNote } from './types'
 import { SCALES } from '../data/scales'
 import { SYNTHS } from '../data/synths'
@@ -591,7 +590,7 @@ interface SampleLoopViewProps {
 }
 
 function SampleLoopView({ loop, currentStep, isPlaying, onToggleStep, onSetLoopSample }: SampleLoopViewProps) {
-  const playerRef   = useRef<Tone.Player | null>(null)
+  const playerRef   = useRef<{ dispose: () => void } | null>(null)
   const [previewing, setPreviewing] = useState(false)
 
   useEffect(() => () => { playerRef.current?.dispose() }, [])
@@ -606,6 +605,9 @@ function SampleLoopView({ loop, currentStep, isPlaying, onToggleStep, onSetLoopS
   }, [loop.sample])
 
   const handlePreview = useCallback(async () => {
+    // Lazy-load Tone inside the user-gesture handler so the AudioContext is
+    // only created here (not at module-import time).
+    const Tone = await import('tone')
     if (Tone.getContext().state !== 'running') await Tone.start()
     if (playerRef.current) {
       playerRef.current.dispose()

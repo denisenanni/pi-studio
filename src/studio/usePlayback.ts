@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type * as ToneNS from 'tone'
+import type { buildEffect as _buildEffectImport } from '../hooks/useFxPlayer'
 import type { StudioState } from './types'
 import { getSonicInstance, initSuperSonic, ensureSynthDef, getNextNodeId } from '../hooks/useSuperSonic'
 
@@ -11,9 +12,30 @@ import { getSonicInstance, initSuperSonic, ensureSynthDef, getNextNodeId } from 
 // We load it dynamically on the first call to play() instead.
 
 let _tone: typeof ToneNS | null = null
-
-type BuildEffectFn = (fxKey: string, params: Record<string, number>, mix: number) => FxNode
+type BuildEffectFn = typeof _buildEffectImport
 let _buildEffect: BuildEffectFn | null = null
+
+// Single in-flight promise so concurrent callers (e.g. React Strict Mode
+// double-invoke) share one load rather than racing to write _tone/_buildEffect.
+let _loadPromise: Promise<void> | null = null
+
+export async function ensureToneLoaded(): Promise<void> {
+  if (_tone !== null) return
+  if (_loadPromise) return _loadPromise
+  _loadPromise = (async () => {
+    const [toneModule, fxModule] = await Promise.all([
+      import('tone'),
+      import('../hooks/useFxPlayer'),
+    ])
+    _tone = toneModule
+    _buildEffect = fxModule.buildEffect
+  })()
+  return _loadPromise
+}
+
+export function getTone(): typeof ToneNS | null {
+  return _tone
+}
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -176,13 +198,10 @@ export function usePlayback(state: StudioState): PlaybackControls {
 
   const play = useCallback(async (): Promise<void> => {
     // Lazy-load Tone.js on first play — must happen before any other Tone calls.
-    // Dynamic import ensures the module (and its module-level getContext() calls)
-    // only runs here, inside a user gesture.
-    if (!_tone) {
-      _tone = await import('tone')
-      _buildEffect = ((await import('../hooks/useFxPlayer')) as { buildEffect: BuildEffectFn }).buildEffect
-    }
-    const Tone = _tone
+    // ensureToneLoaded() coalesces concurrent calls onto one promise so there
+    // is no race between multiple play() invocations (e.g. Strict Mode).
+    await ensureToneLoaded()
+    const Tone = _tone!
 
     // Resume AudioContext inside user gesture — must happen before audio operations
     if (Tone.getContext().state !== 'running') {

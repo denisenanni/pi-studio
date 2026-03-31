@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback, useMemo, useEffect, memo } from 'react'
 import type { StudioLoop, StudioNote } from './types'
+import { ensureToneLoaded, getTone } from './usePlayback'
 import { SCALES } from '../data/scales'
 import { SYNTHS } from '../data/synths'
 import { SYNTH_FX_LIST } from '../data/synthFx'
@@ -590,14 +591,18 @@ interface SampleLoopViewProps {
 }
 
 function SampleLoopView({ loop, currentStep, isPlaying, onToggleStep, onSetLoopSample }: SampleLoopViewProps) {
-  const playerRef   = useRef<{ dispose: () => void } | null>(null)
+  const playerRef   = useRef<{ stop: () => void; dispose: () => void } | null>(null)
   const [previewing, setPreviewing] = useState(false)
 
-  useEffect(() => () => { playerRef.current?.dispose() }, [])
+  useEffect(() => () => {
+    playerRef.current?.stop()
+    playerRef.current?.dispose()
+  }, [])
 
   // Stop old preview when sample changes
   useEffect(() => {
     if (playerRef.current) {
+      playerRef.current.stop()
       playerRef.current.dispose()
       playerRef.current = null
       setPreviewing(false)
@@ -605,11 +610,15 @@ function SampleLoopView({ loop, currentStep, isPlaying, onToggleStep, onSetLoopS
   }, [loop.sample])
 
   const handlePreview = useCallback(async () => {
-    // Lazy-load Tone inside the user-gesture handler so the AudioContext is
-    // only created here (not at module-import time).
-    const Tone = await import('tone')
+    // Load Tone if not already loaded (no-op after usePlayback.play() has run).
+    await ensureToneLoaded()
+    const Tone = getTone()!
+    // Tone.start() must be called before any further awaits to stay within the
+    // user-gesture activation window on mobile browsers (the window closes after
+    // the first microtask boundary that crosses an I/O operation).
     if (Tone.getContext().state !== 'running') await Tone.start()
     if (playerRef.current) {
+      playerRef.current.stop()
       playerRef.current.dispose()
       playerRef.current = null
       setPreviewing(false)

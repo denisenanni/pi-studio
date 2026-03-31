@@ -37,6 +37,19 @@ export function Transport({
   const tapTimesRef = useRef<number[]>([])
   const tapResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [tapActive, setTapActive] = useState(false)
+  const [exported, setExported] = useState(false)
+  const exportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleExportClick = useCallback(() => {
+    onExport()
+    setExported(true)
+    if (exportTimerRef.current) clearTimeout(exportTimerRef.current)
+    exportTimerRef.current = setTimeout(() => setExported(false), 1500)
+  }, [onExport])
+
+  useEffect(() => () => {
+    if (exportTimerRef.current) clearTimeout(exportTimerRef.current)
+  }, [])
 
   // Clean up tap reset timer on unmount
   useEffect(() => {
@@ -188,25 +201,23 @@ export function Transport({
 
       {/* Undo / Redo */}
       <button
-        className="studio-transport-icon-btn"
-        onClick={onUndo}
-        disabled={!canUndo}
-        title="Undo"
+        className={`studio-transport-icon-btn${!canUndo ? ' studio-transport-icon-btn--disabled' : ''}`}
+        onClick={canUndo ? onUndo : undefined}
+        title="Undo (Cmd+Z)"
       >
         ↩
       </button>
       <button
-        className="studio-transport-icon-btn"
-        onClick={onRedo}
-        disabled={!canRedo}
-        title="Redo"
+        className={`studio-transport-icon-btn${!canRedo ? ' studio-transport-icon-btn--disabled' : ''}`}
+        onClick={canRedo ? onRedo : undefined}
+        title="Redo (Cmd+Shift+Z)"
       >
         ↪
       </button>
 
       {/* Export */}
-      <button className="studio-transport-export" onClick={onExport} title="Export .rb file">
-        EXPORT .rb
+      <button className="studio-transport-export" onClick={handleExportClick} title="Export .rb file">
+        {exported ? '✓ Exported' : 'EXPORT .rb'}
       </button>
     </div>
   )

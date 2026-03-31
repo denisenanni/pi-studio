@@ -437,6 +437,29 @@ export function StudioPage() {
     })
   }, [handleLoopsResizeReset])
 
+  // ── Keyboard shortcuts ─────────────────────────────────
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+
+      const mod = e.metaKey || e.ctrlKey
+      if (!mod) return
+
+      if (e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        handleUndo()
+      } else if ((e.key === 'z' && e.shiftKey) || (e.ctrlKey && e.key === 'y')) {
+        e.preventDefault()
+        handleRedo()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [handleUndo, handleRedo])
+
   // ── Playback engine ────────────────────────────────────
 
   const { play: playbackPlay, stop: playbackStop, isPlaying: pbPlaying,

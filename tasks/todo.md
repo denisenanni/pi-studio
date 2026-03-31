@@ -624,3 +624,21 @@
 **`src/studio/studio.css`** — `.studio-params-mode-label` (8px, letter-spaced, color set inline from props). `.studio-param--overridden .studio-param-label` (slightly green tint). `.studio-note-param-dot` (4px white circle, top-right corner of note block).
 
 **Build:** `yarn build` passes with zero TypeScript errors. No `any`.
+
+---
+
+## Task 21 — Undo/Redo Keyboard Shortcuts + Export Flash
+
+### Plan
+
+- [x] 1. **`StudioPage.tsx`** — add `useEffect` global `keydown` listener: `Cmd/Ctrl+Z` → `handleUndo`, `Cmd/Ctrl+Shift+Z` or `Ctrl+Y` → `handleRedo`; skip when `e.target` is `INPUT` or `TEXTAREA`
+- [x] 2. **`Transport.tsx`** — add local `exported: boolean` state; after calling `onExport`, set `exported = true`, reset after 1.5 s; render `✓ Exported` / `EXPORT .rb` accordingly
+- [x] 3. **Build check** — `yarn build` passes, no TypeScript errors, no `any`
+
+### Review
+
+**`src/studio/StudioPage.tsx`** — `useEffect` registers a `keydown` listener on `window`. Guards: skips if `e.target` is `INPUT` or `TEXTAREA`; requires `metaKey || ctrlKey`. `Ctrl/Cmd+Z` (no shift) → `handleUndo`. `Ctrl/Cmd+Shift+Z` or `Ctrl+Y` → `handleRedo`. Listener cleaned up on unmount. Dependencies: `[handleUndo, handleRedo]` — both are stable `useCallback`s.
+
+**`src/studio/Transport.tsx`** — `exported` boolean state + `exportTimerRef` for cleanup. `handleExportClick` calls `onExport()`, sets `exported = true`, schedules reset after 1500 ms (clears any pending timer first). `useEffect` clears the timer on unmount. Button label renders `✓ Exported` when `exported` is true, `EXPORT .rb` otherwise.
+
+**Build:** `yarn build` passes with zero TypeScript errors. No `any`.

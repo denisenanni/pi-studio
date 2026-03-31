@@ -188,8 +188,8 @@
 .studio-transport-icon-btn {
   padding: 4px 8px;
   background: none;
-  border: 1px solid #222222;
-  color: #444444;
+  border: 1px solid #2a2a2a;
+  color: #777777;
   font-family: inherit;
   font-size: 13px;
   cursor: pointer;
@@ -198,14 +198,19 @@
     color 0.1s;
 }
 
-.studio-transport-icon-btn:hover:not(:disabled) {
-  border-color: #444444;
-  color: #888888;
+.studio-transport-icon-btn:hover {
+  border-color: #555555;
+  color: #aaaaaa;
 }
 
-.studio-transport-icon-btn:disabled {
+.studio-transport-icon-btn--disabled {
   opacity: 0.3;
   cursor: default;
+}
+
+.studio-transport-icon-btn--disabled:hover {
+  border-color: #2a2a2a;
+  color: #777777;
 }
 
 .studio-transport-export {

@@ -103,22 +103,30 @@ function buildSynthBody(loop: StudioLoop, timeSignature: [number, number]): stri
 
 function buildSampleBody(loop: StudioLoop, timeSignature: [number, number]): string[] {
   const lines: string[] = []
-  const stepDur = stepDuration(loop, timeSignature)
+  const stepDur    = stepDuration(loop, timeSignature)
   const totalSteps = loop.steps * loop.bars
 
-  let anyActive = false
+  let anyActive    = false
+  let pendingSleep = 0
+
   for (let i = 0; i < totalSteps; i++) {
     if (loop.activeSteps[i]) {
       anyActive = true
+      if (pendingSleep > 0) {
+        lines.push(`  sleep ${formatBeat(pendingSleep)}`)
+        pendingSleep = 0
+      }
       lines.push(`  sample :${loop.sample}`)
+      pendingSleep = stepDur
+    } else {
+      pendingSleep += stepDur
     }
-    lines.push(`  sleep ${formatBeat(stepDur)}`)
   }
 
+  if (pendingSleep > 0) lines.push(`  sleep ${formatBeat(pendingSleep)}`)
+
   if (!anyActive) {
-    // All steps silent — emit a single rest for the full loop
-    lines.splice(0)
-    lines.push(`  sleep ${formatBeat(totalSteps * stepDur)}`)
+    return [`  sleep ${formatBeat(totalSteps * stepDur)}`]
   }
 
   return lines

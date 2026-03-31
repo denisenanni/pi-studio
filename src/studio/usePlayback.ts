@@ -196,7 +196,8 @@ export function usePlayback(state: StudioState): PlaybackControls {
       const cur = stateRef.current
 
       for (const loop of cur.loops) {
-        if (loop.muted) continue
+        const effectivelyMuted = loop.muted || (cur.soloLoopId !== null && cur.soloLoopId !== loop.id)
+        if (effectivelyMuted) continue
 
         const loopStep = tick % loop.steps
 

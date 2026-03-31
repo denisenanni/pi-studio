@@ -1,6 +1,10 @@
 import { useRef, useState, useCallback, useMemo, useEffect, memo } from 'react'
+import * as Tone from 'tone'
 import type { StudioLoop, StudioNote } from './types'
 import { SCALES } from '../data/scales'
+import { SYNTHS } from '../data/synths'
+import { SYNTH_FX_LIST } from '../data/synthFx'
+import { SAMPLE_GROUPS } from '../data/samples'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -11,12 +15,11 @@ const ROLL_MIDI_TOP    = 84   // C6
 const ROLL_MIDI_BOTTOM = 48   // C3
 const ROLL_NOTE_COUNT  = ROLL_MIDI_TOP - ROLL_MIDI_BOTTOM + 1
 const STEP_WIDTH       = 32   // px per step
+const SAMPLE_BTN_SIZE  = 32   // px per sample step button
 const CELL_HEIGHT      = 16   // px per MIDI row
 const VEL_MAX_H        = 40   // px when velocity = 1
 const RESIZE_HANDLE_W  = 6    // px — right-edge resize zone
 
-const SYNTH_OPTIONS  = ['prophet', 'tb303', 'dsaw', 'blade', 'beep'] as const
-const FX_OPTIONS     = ['none', 'reverb', 'echo', 'distortion'] as const
 const STEPS_OPTIONS  = [4, 8, 16, 32] as const
 const SCALE_OPTIONS  = ['major', 'minor', 'dorian', 'pentatonic', 'chromatic'] as const
 
@@ -115,6 +118,8 @@ interface DetailPanelProps {
   onSynthChange: (synth: string) => void
   onFxChange: (fx: string) => void
   onStepsChange: (steps: number) => void
+  onToggleStep: (loopId: string, step: number) => void
+  onSetLoopSample: (loopId: string, sample: string) => void
   onAddNote: (loopId: string, note: StudioNote) => void
   onDeleteNote: (loopId: string, noteId: string) => void
   onMoveNote: (loopId: string, noteId: string, step: number, midiNote: number) => void
@@ -128,7 +133,7 @@ interface DetailPanelProps {
 export function DetailPanel({
   loop, scaleLock, scaleName, scaleRoot, selectedNoteId, currentStep, isPlaying,
   onScaleLockToggle, onScaleNameChange,
-  onSynthChange, onFxChange, onStepsChange,
+  onSynthChange, onFxChange, onStepsChange, onToggleStep, onSetLoopSample,
   onAddNote, onDeleteNote, onMoveNote, onResizeNote, onSetVelocity, onSelectNote,
 }: DetailPanelProps) {
   const scrollRef       = useRef<HTMLDivElement | null>(null)
@@ -415,25 +420,28 @@ export function DetailPanel({
 
         <span className="studio-detail-divider">|</span>
 
-        <span className="studio-detail-label">SYNTH</span>
-        <select
-          className="studio-detail-select"
-          value={loop?.synth ?? 'prophet'}
-          onChange={(e) => onSynthChange(e.target.value)}
-          disabled={!loop || loop.type === 'sample'}
-        >
-          {SYNTH_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
+        {(!loop || loop.type === 'synth') && (<>
+          <span className="studio-detail-label">SYNTH</span>
+          <select
+            className="studio-detail-select"
+            value={loop?.synth ?? 'beep'}
+            onChange={(e) => onSynthChange(e.target.value)}
+            disabled={!loop}
+          >
+            {SYNTHS.map((s) => <option key={s.name} value={s.name}>{s.label}</option>)}
+          </select>
 
-        <span className="studio-detail-label">FX</span>
-        <select
-          className="studio-detail-select"
-          value={loop?.fx ?? 'none'}
-          onChange={(e) => onFxChange(e.target.value)}
-          disabled={!loop}
-        >
-          {FX_OPTIONS.map((f) => <option key={f} value={f}>{f}</option>)}
-        </select>
+          <span className="studio-detail-label">FX</span>
+          <select
+            className="studio-detail-select"
+            value={loop?.fx ?? 'none'}
+            onChange={(e) => onFxChange(e.target.value)}
+            disabled={!loop}
+          >
+            <option value="none">none</option>
+            {SYNTH_FX_LIST.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+          </select>
+        </>)}
 
         <span className="studio-detail-label">STEPS</span>
         <select
@@ -469,7 +477,19 @@ export function DetailPanel({
         <span className="studio-detail-hint">click · right-click to delete · drag to move</span>
       </div>
 
-      {/* Piano roll — tabIndex makes it focusable for keyboard shortcuts */}
+      {/* Sample loop view */}
+      {loop?.type === 'sample' && (
+        <SampleLoopView
+          loop={loop}
+          currentStep={currentStep}
+          isPlaying={isPlaying}
+          onToggleStep={onToggleStep}
+          onSetLoopSample={onSetLoopSample}
+        />
+      )}
+
+      {/* Piano roll + velocity lane (synth loops only) */}
+      {(!loop || loop.type === 'synth') && <>
       <div
         className="studio-piano-roll"
         tabIndex={0}
@@ -555,6 +575,95 @@ export function DetailPanel({
         velBarRefs={velBarRefs}
         onVelMouseDown={handleVelMouseDown}
       />
+      </>}
+    </div>
+  )
+}
+
+// ── SampleLoopView ───────────────────────────────────────────────────────────
+
+interface SampleLoopViewProps {
+  loop: StudioLoop
+  currentStep: number
+  isPlaying: boolean
+  onToggleStep: (loopId: string, step: number) => void
+  onSetLoopSample: (loopId: string, sample: string) => void
+}
+
+function SampleLoopView({ loop, currentStep, isPlaying, onToggleStep, onSetLoopSample }: SampleLoopViewProps) {
+  const playerRef   = useRef<Tone.Player | null>(null)
+  const [previewing, setPreviewing] = useState(false)
+
+  useEffect(() => () => { playerRef.current?.dispose() }, [])
+
+  // Stop old preview when sample changes
+  useEffect(() => {
+    if (playerRef.current) {
+      playerRef.current.dispose()
+      playerRef.current = null
+      setPreviewing(false)
+    }
+  }, [loop.sample])
+
+  const handlePreview = useCallback(async () => {
+    if (Tone.getContext().state !== 'running') await Tone.start()
+    if (playerRef.current) {
+      playerRef.current.dispose()
+      playerRef.current = null
+      setPreviewing(false)
+      return
+    }
+    const player = new Tone.Player({
+      url: `${import.meta.env.BASE_URL}samples/${loop.sample}.flac`,
+    }).toDestination()
+    playerRef.current = player
+    player.autostart = true
+    player.onstop = () => setPreviewing(false)
+    setPreviewing(true)
+  }, [loop.sample])
+
+  const steps     = loop.steps
+  const gridWidth = steps * SAMPLE_BTN_SIZE
+
+  return (
+    <div className="studio-sample-view">
+      <div className="studio-sample-step-grid" style={{ width: gridWidth }}>
+        {Array.from({ length: steps }, (_, i) => {
+          const active  = loop.activeSteps[i]
+          const playing = isPlaying && (currentStep % steps) === i
+          return (
+            <button
+              key={i}
+              className={`studio-sample-step-btn${active ? ' active' : ''}${playing ? ' playing' : ''}`}
+              onClick={() => onToggleStep(loop.id, i)}
+              title={`Step ${i + 1}`}
+            />
+          )
+        })}
+      </div>
+
+      <div className="studio-sample-controls">
+        <select
+          className="studio-detail-select"
+          value={loop.sample}
+          onChange={(e) => onSetLoopSample(loop.id, e.target.value)}
+        >
+          {SAMPLE_GROUPS.map((group) => (
+            <optgroup key={group.category} label={group.category}>
+              {group.samples.map((s) => (
+                <option key={s.name} value={s.name}>{s.name}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        <button
+          className={`studio-sample-preview-btn${previewing ? ' active' : ''}`}
+          onClick={() => { void handlePreview() }}
+          title={previewing ? 'Stop preview' : 'Preview sample'}
+        >
+          {previewing ? '■' : '▶'}
+        </button>
+      </div>
     </div>
   )
 }

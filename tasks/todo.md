@@ -642,3 +642,57 @@
 **`src/studio/Transport.tsx`** — `exported` boolean state + `exportTimerRef` for cleanup. `handleExportClick` calls `onExport()`, sets `exported = true`, schedules reset after 1500 ms (clears any pending timer first). `useEffect` clears the timer on unmount. Button label renders `✓ Exported` when `exported` is true, `EXPORT .rb` otherwise.
 
 **Build:** `yarn build` passes with zero TypeScript errors. No `any`.
+
+---
+
+## Task 22 — Loop Management
+
+### Plan
+
+- [x] 1. **`types.ts`** — add `soloLoopId: string | null` to `StudioState` (not snapshot — solo is ephemeral/performance, not undoable)
+- [x] 2. **`StudioPage.tsx`** — add `handleAddLoop` (max 8, auto-select), `handleDeleteLoop` (select adjacent, min 1), `handleSetLoopType` (clear notes when → sample), `handleSetLoopSample`, `handleToggleStep`, `handleReorderLoops`, `handleToggleSolo`; update `handleRenameLoop` with sanitisation (lowercase, spaces→`_`, strip special chars, max 20, dedup suffix, no empty); add `soloLoopId: null` to `makeInitialState`; pass all new props to `LoopsPanel` and `DetailPanel`
+- [x] 3. **`LoopsPanel.tsx`** — wire `+` button with `onAddLoop` (disabled at 8); add `S` solo button per strip; add `×` delete button (hover-reveal, 2-click confirm within 2 s, disabled at 1 loop); drag reorder via `≡` handle (mousedown → mousemove placeholder → mouseup dispatch)
+- [x] 4. **`DetailPanel.tsx`** — when `loop.type === 'sample'`: render step grid (N square buttons, toggle via `onToggleStep`, playhead highlight) + sample selector dropdown (`SAMPLE_GROUPS`) + preview button (Tone.Player); populate SYNTH dropdown from `SYNTHS` in synths.ts; populate FX dropdown from `SYNTH_FX_LIST` in synthFx.ts (hide both for sample loops); show sample controls instead of piano roll for sample loops
+- [x] 5. **`codeGen.ts`** — fix `buildSampleBody`: collapse consecutive inactive steps into a single `sleep` rather than one per step; only emit `sample :xxx` on active steps
+- [x] 6. **`usePlayback.ts`** — respect `soloLoopId`: when set, only play that loop (treat all others as muted for playback purposes, but don't alter `loop.muted`)
+- [x] 7. **`studio.css`** — styles for solo button, delete button (hover reveal + confirm-red state), drag placeholder, sample step grid, sample selector
+- [x] 8. **Build check** — `yarn build` passes, no TypeScript errors, no `any`
+
+### Review
+
+**`src/studio/types.ts`** — `soloLoopId: string | null` in `StudioState` only (not snapshotted).
+
+**`src/studio/StudioPage.tsx`** — `sanitizeLoopName` helper. `handleRenameLoop` sanitises + deduplicates. New handlers: `handleAddLoop` (max 8, pushUndo), `handleDeleteLoop` (min 1, selects adjacent, pushUndo), `handleSetLoopType` (clears notes + activeSteps on switch, pushUndo), `handleSetLoopSample`, `handleToggleStep`, `handleReorderLoops` (splice/insert, pushUndo), `handleToggleSolo` (toggles soloLoopId, no undo). `handleToggleMute` no longer pushes undo (performance control).
+
+**`src/studio/LoopsPanel.tsx`** — Full rewrite. `+` greys out at 8 loops. `≡` drag handle: binds window mousemove/mouseup; queries `.studio-loop-strip` children for drop position; renders `.studio-loop-drop-indicator` line at drop index. `S` solo button (green when active). `×` delete: hidden by default (opacity 0, hover reveals); first click arms a 2 s confirm timer; second click dispatches delete; invisible when only 1 loop. Type badge is a `<button>` toggling synth↔sample. Muted strip dims via `.muted` class (opacity 0.5).
+
+**`src/studio/DetailPanel.tsx`** — SYNTH/FX dropdowns from real data (`SYNTHS`, `SYNTH_FX_LIST`), hidden for sample loops. Sample loops render `SampleLoopView`: 32 px step buttons (active=green, playing=white), `SAMPLE_GROUPS` optgroup selector, preview button (Tone.Player created on demand, disposed on stop/unmount/sample change).
+
+**`src/studio/codeGen.ts`** — `buildSampleBody` accumulates `pendingSleep`, emits one collapsed `sleep` before each active step and one after; no active steps → single rest for full loop.
+
+**`src/studio/usePlayback.ts`** — `effectivelyMuted = loop.muted || (soloLoopId !== null && soloLoopId !== loop.id)`.
+
+**`src/studio/studio.css`** — drag handle, drop indicator, dragging/muted strip states, solo/delete button styles, sample step grid + preview button.
+
+**Build:** `yarn build` passes with zero TypeScript errors. No `any`.
+
+---
+
+## Task 23 — Tooltip Component for Loop Buttons
+
+### Plan
+
+- [x] 1. **`src/studio/Tooltip.tsx`** — reusable `<Tooltip text children>` component: `position: relative` wrapper span, absolutely-positioned `tooltip-content` span above center; CSS opacity transition with 300 ms delay
+- [x] 2. **`studio.css`** — `.tooltip-wrapper` / `.tooltip-content` styles: `#1a1a1a` bg, `1px solid #2a2a2a` border, `#888888` 10 px monospace text, `3px 8px` padding, square corners, fade-in with 300 ms delay
+- [x] 3. **`LoopsPanel.tsx`** — wrap `S`, `M`, `×` buttons in `<Tooltip>` with correct dynamic text
+- [x] 4. **Build check**
+
+### Review
+
+**`src/studio/Tooltip.tsx`** (new) — `<span className="tooltip-wrapper">` wraps children + a `<span className="tooltip-content">` with the text. Pure CSS approach: no JS, no refs, no state.
+
+**`src/studio/studio.css`** — `.tooltip-wrapper` is `display: inline-block; position: relative`. `.tooltip-content` is `position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%)` — always centered above the trigger. `opacity: 0` by default; `transition: opacity 0.1s 0.3s` (instant fade-in after 300 ms delay, instant fade-out). `z-index: 100` so it layers over adjacent strips.
+
+**`src/studio/LoopsPanel.tsx`** — `title` attrs removed from S/M/× (replaced by Tooltip). Dynamic text: S → `'Solo'`/`'Unsolo'`; M → `'Mute'`/`'Unmute'`; × → `'Delete loop'`/`'Confirm delete'`.
+
+**Build:** `yarn build` passes with zero TypeScript errors. No `any`.

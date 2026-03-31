@@ -48,6 +48,7 @@ export type StudioState = StudioSnapshot & {
   currentBar: number
   currentStep: number
   selectedNoteId: string | null   // ephemeral UI selection — not stored in undo snapshot
+  soloLoopId: string | null       // ephemeral performance control — not stored in undo snapshot
   undoStack: StudioSnapshot[]
   redoStack: StudioSnapshot[]
 }

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import './studio.css'
-import type { StudioState, StudioLoop, StudioNote, StudioSnapshot, StudioParams } from './types'
+import type { StudioState, StudioLoop, StudioNote, StudioSnapshot, StudioParams, LoopType } from './types'
 
 // Default param values — used to merge with per-loop params for ParamsBar display
 const PARAM_DEFAULTS: StudioParams = {
@@ -128,12 +128,21 @@ function makeInitialState(): StudioState {
     currentBar: 1,
     currentStep: 1,
     selectedNoteId: null,
+    soloLoopId: null,
     scaleLock: false,
     scaleRoot: 'C',
     scaleName: 'minor',
     undoStack: [],
     redoStack: [],
   }
+}
+
+function sanitizeLoopName(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_]/g, '')
+    .slice(0, 20)
 }
 
 // ── Snapshot (for undo/redo) ──────────────────────────────
@@ -323,17 +332,102 @@ export function StudioPage() {
   }, [])
 
   const handleToggleMute = useCallback((id: string) => {
+    // Mute is a performance control — no undo
+    setState((s) => ({
+      ...s,
+      loops: s.loops.map((l) => l.id === id ? { ...l, muted: !l.muted } : l),
+    }))
+  }, [])
+
+  const handleToggleSolo = useCallback((id: string) => {
+    setState((s) => ({ ...s, soloLoopId: s.soloLoopId === id ? null : id }))
+  }, [])
+
+  const handleRenameLoop = useCallback((id: string, name: string) => {
+    setState((s) => {
+      const clean = sanitizeLoopName(name)
+      if (!clean) return s
+      const others = s.loops.filter((l) => l.id !== id).map((l) => l.name)
+      let final = clean
+      if (others.includes(final)) {
+        let n = 2
+        while (others.includes(`${clean}_${n}`)) n++
+        final = `${clean}_${n}`
+      }
+      return { ...pushUndo(s), loops: s.loops.map((l) => l.id === id ? { ...l, name: final } : l) }
+    })
+  }, [pushUndo])
+
+  const handleAddLoop = useCallback(() => {
+    setState((s) => {
+      if (s.loops.length >= 8) return s
+      const newLoop: StudioLoop = {
+        id: crypto.randomUUID(),
+        name: `loop${s.loops.length + 1}`,
+        type: 'synth',
+        synth: 'beep',
+        sample: 'bd_haus',
+        fx: 'none',
+        steps: 16,
+        activeSteps: new Array(16).fill(false) as boolean[],
+        notes: [],
+        muted: false,
+        bars: 1,
+        params: {},
+      }
+      return { ...pushUndo(s), loops: [...s.loops, newLoop], selectedLoopId: newLoop.id }
+    })
+  }, [pushUndo])
+
+  const handleDeleteLoop = useCallback((loopId: string) => {
+    setState((s) => {
+      if (s.loops.length <= 1) return s
+      const idx = s.loops.findIndex((l) => l.id === loopId)
+      const newLoops = s.loops.filter((l) => l.id !== loopId)
+      const newSelected = s.selectedLoopId === loopId
+        ? (newLoops[idx] ?? newLoops[idx - 1])?.id ?? null
+        : s.selectedLoopId
+      return { ...pushUndo(s), loops: newLoops, selectedLoopId: newSelected }
+    })
+  }, [pushUndo])
+
+  const handleSetLoopType = useCallback((loopId: string, loopType: LoopType) => {
     setState((s) => ({
       ...pushUndo(s),
-      loops: s.loops.map((l) => l.id === id ? { ...l, muted: !l.muted } : l),
+      loops: s.loops.map((l) => {
+        if (l.id !== loopId) return l
+        return { ...l, type: loopType, notes: [], activeSteps: new Array(l.steps).fill(false) as boolean[] }
+      }),
     }))
   }, [pushUndo])
 
-  const handleRenameLoop = useCallback((id: string, name: string) => {
+  const handleSetLoopSample = useCallback((loopId: string, sample: string) => {
     setState((s) => ({
       ...pushUndo(s),
-      loops: s.loops.map((l) => l.id === id ? { ...l, name } : l),
+      loops: s.loops.map((l) => l.id === loopId ? { ...l, sample } : l),
     }))
+  }, [pushUndo])
+
+  const handleToggleStep = useCallback((loopId: string, step: number) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) => {
+        if (l.id !== loopId) return l
+        const newActive = [...l.activeSteps]
+        newActive[step] = !newActive[step]
+        return { ...l, activeSteps: newActive }
+      }),
+    }))
+  }, [pushUndo])
+
+  const handleReorderLoops = useCallback((fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return
+    setState((s) => {
+      const newLoops = [...s.loops]
+      const [moved] = newLoops.splice(fromIndex, 1)
+      newLoops.splice(toIndex, 0, moved)
+      return { ...pushUndo(s), loops: newLoops }
+    })
   }, [pushUndo])
 
   const handleSynthChange = useCallback((synth: string) => {
@@ -512,9 +606,15 @@ export function StudioPage() {
         <LoopsPanel
           loops={state.loops}
           selectedLoopId={state.selectedLoopId}
+          soloLoopId={state.soloLoopId}
           onSelectLoop={handleSelectLoop}
           onToggleMute={handleToggleMute}
+          onToggleSolo={handleToggleSolo}
           onRenameLoop={handleRenameLoop}
+          onAddLoop={handleAddLoop}
+          onDeleteLoop={handleDeleteLoop}
+          onSetLoopType={handleSetLoopType}
+          onReorderLoops={handleReorderLoops}
           width={loopsWidth}
           collapsed={loopsCollapsed}
           onToggleCollapse={handleToggleLoopsCollapse}
@@ -537,6 +637,8 @@ export function StudioPage() {
             onSynthChange={handleSynthChange}
             onFxChange={handleFxChange}
             onStepsChange={handleStepsChange}
+            onToggleStep={handleToggleStep}
+            onSetLoopSample={handleSetLoopSample}
             onAddNote={handleAddNote}
             onDeleteNote={handleDeleteNote}
             onMoveNote={handleMoveNote}

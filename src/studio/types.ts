@@ -1,5 +1,7 @@
 export type LoopType = 'synth' | 'sample'
 
+export type SyncMode = 'auto' | 'sync_to' | 'free'
+
 export type StudioNote = {
   id: string
   step: number
@@ -22,6 +24,8 @@ export type StudioLoop = {
   muted: boolean
   bars: number           // loop length in bars (default 1)
   params: Record<string, number> // synth param overrides (only non-default values need to be set)
+  syncMode: SyncMode     // default: 'auto'
+  syncTarget: string | null // loop name to sync to (only used when syncMode === 'sync_to')
 }
 
 export type StudioSnapshot = {

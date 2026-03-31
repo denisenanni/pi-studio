@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useMemo, useEffect, memo } from 'react'
-import type { StudioLoop, StudioNote } from './types'
+import type { StudioLoop, StudioNote, SyncMode } from './types'
 import { ensureToneLoaded, getTone } from './usePlayback'
 import { SCALES } from '../data/scales'
 import { SYNTHS } from '../data/synths'
@@ -107,6 +107,7 @@ type DragPreview = {
 
 interface DetailPanelProps {
   loop: StudioLoop | null
+  loops: StudioLoop[]
   scaleLock: boolean
   scaleName: string
   scaleRoot: string
@@ -126,15 +127,17 @@ interface DetailPanelProps {
   onResizeNote: (loopId: string, noteId: string, duration: number) => void
   onSetVelocity: (loopId: string, noteId: string, velocity: number) => void
   onSelectNote: (noteId: string | null) => void
+  onSetSyncMode: (loopId: string, syncMode: SyncMode, syncTarget: string | null) => void
 }
 
 // ── DetailPanel ──────────────────────────────────────────────────────────────
 
 export function DetailPanel({
-  loop, scaleLock, scaleName, scaleRoot, selectedNoteId, currentStep, isPlaying,
+  loop, loops, scaleLock, scaleName, scaleRoot, selectedNoteId, currentStep, isPlaying,
   onScaleLockToggle, onScaleNameChange,
   onSynthChange, onFxChange, onStepsChange, onToggleStep, onSetLoopSample,
   onAddNote, onDeleteNote, onMoveNote, onResizeNote, onSetVelocity, onSelectNote,
+  onSetSyncMode,
 }: DetailPanelProps) {
   const scrollRef       = useRef<HTMLDivElement | null>(null)
   const dragRef         = useRef<DragMode>({ type: 'none' })
@@ -452,6 +455,45 @@ export function DetailPanel({
         >
           {STEPS_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
         </select>
+
+        <span className="studio-detail-divider">|</span>
+
+        <span className="studio-detail-label">SYNC</span>
+        <div className="studio-sync-mode-btns">
+          {(['auto', 'sync_to', 'free'] as SyncMode[]).map((mode) => (
+            <button
+              key={mode}
+              className={`studio-sync-btn${loop?.syncMode === mode ? ' active' : ''}`}
+              disabled={!loop}
+              onClick={() => {
+                if (!loop) return
+                if (mode === 'sync_to') {
+                  // Default target: first other loop
+                  const other = loops.find((l) => l.id !== loop.id)
+                  onSetSyncMode(loop.id, 'sync_to', other?.name ?? null)
+                } else {
+                  onSetSyncMode(loop.id, mode, null)
+                }
+              }}
+              title={mode === 'auto' ? 'Auto sync' : mode === 'sync_to' ? 'Sync to another loop' : 'Free running'}
+            >
+              {mode === 'auto' ? 'A' : mode === 'sync_to' ? 'S' : 'F'}
+            </button>
+          ))}
+        </div>
+        {loop?.syncMode === 'sync_to' && (
+          <select
+            className="studio-detail-select"
+            value={loop.syncTarget ?? ''}
+            onChange={(e) => onSetSyncMode(loop.id, 'sync_to', e.target.value || null)}
+          >
+            {loops
+              .filter((l) => l.id !== loop.id)
+              .map((l) => (
+                <option key={l.id} value={l.name}>{l.name}</option>
+              ))}
+          </select>
+        )}
 
         <span className="studio-detail-divider">|</span>
 

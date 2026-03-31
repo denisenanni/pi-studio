@@ -720,3 +720,17 @@
 **`src/studio/DetailPanel.tsx`** — `await import('tone')` inside `handlePreview` (a click handler = user gesture). Dynamic import resolves from cache if `usePlayback.play()` already ran; the AudioContext creation from Tone's module-level code happens within the user gesture activation window. `playerRef` typed as `{ dispose: () => void } | null` — only needs `dispose()` at cleanup sites.
 
 **Build:** `yarn build` passes. Zero TypeScript errors. No `any`.
+
+---
+
+## Task 25 — Loop Sync Modes
+
+### Plan
+
+- [ ] 1. **`types.ts`** — add `export type SyncMode = 'auto' | 'sync_to' | 'free'`; add `syncMode: SyncMode` and `syncTarget: string | null` to `StudioLoop`; `StudioSnapshot` includes `StudioLoop[]` so these fields are automatically snapshotted (part of undo history)
+- [ ] 2. **`StudioPage.tsx`** — add `syncMode: 'auto', syncTarget: null` to every place a loop is created (`PLACEHOLDER_LOOPS`, `handleAddLoop`, `handleSetLoopType` no-op since fields are preserved); add `handleSetSyncMode(loopId, syncMode, syncTarget)` with `pushUndo`; update `handleDeleteLoop` to revert any loop that `syncTarget === deleted loop's name` back to `{ syncMode: 'auto', syncTarget: null }`; pass `onSetSyncMode` and `loops` to `DetailPanel`
+- [ ] 3. **`DetailPanel.tsx`** — add `loops: StudioLoop[]`, `onSetSyncMode` props; add sync control in the detail header after SCALE LOCK: label `SYNC`, `<select>` with options auto/sync_to/free; when `sync_to` show second `<select>` listing all other loop names (exclude self); pass `loop.syncMode` and `loop.syncTarget` as controlled values
+- [ ] 4. **`LoopsPanel.tsx`** — add sync indicator below the type badge in each strip: nothing for `auto`, `→ :name` for `sync_to`, `free` for `free`; style inline with `#555` color, `10px` font
+- [ ] 5. **`codeGen.ts`** — replace hardcoded `live_loop :${loop.name} do` with `buildLoopHeader(loop, allLoopNames)`; header returns `live_loop :${loop.name} do` (auto), `live_loop :${loop.name}, sync: :${loop.syncTarget} do` (sync_to, with fallback to auto if target missing), `live_loop :${loop.name}, delay: 0 do` (free); pass `allLoopNames: Set<string>` for target validation
+- [ ] 6. **`studio.css`** — `.studio-sync-indicator`: 10px monospace, `#555`, no margin-top needed (row 2 already has the type badge); `.studio-sync-control`: flex row, gap, align-items center
+- [ ] 7. **Build check** — `yarn build` passes, no TypeScript errors, no `any`

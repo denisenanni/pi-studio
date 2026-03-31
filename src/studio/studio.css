@@ -560,6 +560,26 @@
   color: #777777;
 }
 
+.studio-loop-sync-badge {
+  font-size: 8px;
+  padding: 1px 4px;
+  background: none;
+  border: 1px solid #2d4a2d;
+  color: #5a8a5a;
+  letter-spacing: 0.5px;
+  font-family: inherit;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 72px;
+}
+
+.studio-loop-sync-badge.free {
+  border-color: #2d3a4a;
+  color: #5a6a8a;
+}
+
 /* Step grid */
 .studio-step-grid {
   display: flex;
@@ -841,6 +861,41 @@
 .studio-scale-lock-toggle.on::after {
   transform: translateX(14px);
   background: var(--accent, #7cfc7c);
+}
+
+.studio-sync-mode-btns {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.studio-sync-btn {
+  font-size: 9px;
+  padding: 2px 6px;
+  background: none;
+  border: 1px solid #2a2a2a;
+  color: #444444;
+  font-family: inherit;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition:
+    border-color 0.1s,
+    color 0.1s;
+}
+
+.studio-sync-btn:hover {
+  border-color: #444444;
+  color: #888888;
+}
+
+.studio-sync-btn.active {
+  border-color: var(--accent, #7cfc7c);
+  color: var(--accent, #7cfc7c);
+}
+
+.studio-sync-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 .studio-detail-hint {

@@ -145,6 +145,16 @@ function wrapWithFx(fx: string, mix: number, bodyLines: string[]): string[] {
 
 // ── Loop block ─────────────────────────────────────────────
 
+function buildLoopHeader(loop: StudioLoop): string {
+  if (loop.syncMode === 'sync_to' && loop.syncTarget) {
+    return `live_loop :${loop.name}, sync: :${loop.syncTarget} do`
+  }
+  if (loop.syncMode === 'free') {
+    return `live_loop :${loop.name}, delay: 0 do`
+  }
+  return `live_loop :${loop.name} do`
+}
+
 function buildLoopBlock(loop: StudioLoop, timeSignature: [number, number]): string {
   const bodyLines =
     loop.type === 'synth'
@@ -155,7 +165,7 @@ function buildLoopBlock(loop: StudioLoop, timeSignature: [number, number]): stri
     loop.fx !== 'none' ? wrapWithFx(loop.fx, getParam(loop, 'reverb_mix'), bodyLines) : bodyLines
 
   return [
-    `live_loop :${loop.name} do`,
+    buildLoopHeader(loop),
     ...wrappedLines,
     `end`,
   ].join('\n')

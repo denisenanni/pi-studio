@@ -222,6 +222,14 @@ export function LoopsPanel({
                 >
                   {loop.type}
                 </button>
+                {loop.syncMode === 'sync_to' && (
+                  <span className="studio-loop-sync-badge" title={`Synced to: ${loop.syncTarget ?? '?'}`}>
+                    sync→{loop.syncTarget ?? '?'}
+                  </span>
+                )}
+                {loop.syncMode === 'free' && (
+                  <span className="studio-loop-sync-badge free" title="Free running">free</span>
+                )}
 
                 <div className="studio-step-grid">
                   {loop.activeSteps.map((active, i) => {

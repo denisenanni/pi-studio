@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import './studio.css'
-import type { StudioState, StudioLoop, StudioNote, StudioSnapshot, StudioParams, LoopType } from './types'
+import type { StudioState, StudioLoop, StudioNote, StudioSnapshot, StudioParams, LoopType, SyncMode } from './types'
 
 // Default param values — used to merge with per-loop params for ParamsBar display
 const PARAM_DEFAULTS: StudioParams = {
@@ -79,6 +79,8 @@ const PLACEHOLDER_LOOPS: StudioLoop[] = [
     muted: false,
     bars: 1,
     params: {},
+    syncMode: 'auto',
+    syncTarget: null,
   },
   {
     id: 'loop-beat',
@@ -93,6 +95,8 @@ const PLACEHOLDER_LOOPS: StudioLoop[] = [
     muted: false,
     bars: 1,
     params: {},
+    syncMode: 'auto',
+    syncTarget: null,
   },
   {
     id: 'loop-bass',
@@ -107,6 +111,8 @@ const PLACEHOLDER_LOOPS: StudioLoop[] = [
     muted: false,
     bars: 1,
     params: {},
+    syncMode: 'auto',
+    syncTarget: null,
   },
 ]
 
@@ -374,6 +380,8 @@ export function StudioPage() {
         muted: false,
         bars: 1,
         params: {},
+        syncMode: 'auto',
+        syncTarget: null,
       }
       return { ...pushUndo(s), loops: [...s.loops, newLoop], selectedLoopId: newLoop.id }
     })
@@ -383,7 +391,14 @@ export function StudioPage() {
     setState((s) => {
       if (s.loops.length <= 1) return s
       const idx = s.loops.findIndex((l) => l.id === loopId)
-      const newLoops = s.loops.filter((l) => l.id !== loopId)
+      const deletedName = s.loops.find((l) => l.id === loopId)?.name
+      const newLoops = s.loops
+        .filter((l) => l.id !== loopId)
+        .map((l) =>
+          l.syncMode === 'sync_to' && l.syncTarget === deletedName
+            ? { ...l, syncMode: 'auto' as SyncMode, syncTarget: null }
+            : l
+        )
       const newSelected = s.selectedLoopId === loopId
         ? (newLoops[idx] ?? newLoops[idx - 1])?.id ?? null
         : s.selectedLoopId
@@ -441,6 +456,13 @@ export function StudioPage() {
     setState((s) => ({
       ...pushUndo(s),
       loops: s.loops.map((l) => l.id === s.selectedLoopId ? { ...l, fx } : l),
+    }))
+  }, [pushUndo])
+
+  const handleSetSyncMode = useCallback((loopId: string, syncMode: SyncMode, syncTarget: string | null) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) => l.id === loopId ? { ...l, syncMode, syncTarget } : l),
     }))
   }, [pushUndo])
 
@@ -626,6 +648,7 @@ export function StudioPage() {
         <div className="studio-center">
           <DetailPanel
             loop={selectedLoop}
+            loops={state.loops}
             scaleLock={state.scaleLock}
             scaleName={state.scaleName}
             scaleRoot={state.scaleRoot}
@@ -645,6 +668,7 @@ export function StudioPage() {
             onResizeNote={handleResizeNote}
             onSetVelocity={handleSetVelocity}
             onSelectNote={handleSelectNote}
+            onSetSyncMode={handleSetSyncMode}
           />
 
           <ParamsBar

@@ -120,20 +120,33 @@
   align-items: center;
   gap: 4px;
   font-size: 13px;
-  color: #555555;
+  color: #444444;
 }
 
 .studio-timesig-input {
   width: 24px;
-  background: none;
+  background: transparent;
   border: none;
-  border-bottom: 1px solid #333333;
-  color: #888888;
-  font-family: inherit;
+  border-bottom: 1px solid transparent;
+  color: #7cfc7c;
+  font-family: monospace;
   font-size: 13px;
   text-align: center;
   outline: none;
   padding: 0;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.studio-timesig-input::-webkit-inner-spin-button,
+.studio-timesig-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.studio-timesig-input:focus {
+  border-bottom: 1px solid #7cfc7c;
 }
 
 .studio-transport-play {
@@ -157,23 +170,6 @@
   color: #111111;
 }
 
-.studio-transport-stop {
-  padding: 5px 10px;
-  background: none;
-  border: 1px solid #2a2a2a;
-  color: #555555;
-  font-family: inherit;
-  font-size: 11px;
-  cursor: pointer;
-  transition:
-    border-color 0.1s,
-    color 0.1s;
-}
-
-.studio-transport-stop:hover {
-  border-color: #555555;
-  color: #888888;
-}
 
 .studio-bar-counter {
   font-size: 11px;

@@ -181,9 +181,6 @@ export function Transport({
       <button className="studio-transport-play" onClick={isPlaying ? onStop : onPlay}>
         {isPlaying ? '■ Stop' : '▶ Play'}
       </button>
-      <button className="studio-transport-stop" onClick={onStop} disabled={!isPlaying}>
-        ■
-      </button>
 
       {/* Bar counter */}
       <span className="studio-bar-counter">

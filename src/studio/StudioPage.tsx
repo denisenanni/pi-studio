@@ -57,7 +57,7 @@ function makeSteps(total: number, active: number[]): boolean[] {
 }
 
 const PLACEHOLDER_NOTE = (id: string, step: number, midiNote: number, vel: number): StudioNote => ({
-  id, step, duration: 1, note: midiNote, velocity: vel,
+  id, step, duration: 1, note: midiNote, velocity: vel, params: {},
 })
 
 const PLACEHOLDER_LOOPS: StudioLoop[] = [
@@ -243,7 +243,18 @@ export function StudioPage() {
     setState((s) => ({ ...pushUndo(s), timeSignature: ts }))
   }, [pushUndo])
 
-  const handleParamChange = useCallback((key: keyof StudioParams, value: number) => {
+  const handleSetNoteParam = useCallback((loopId: string, noteId: string, key: string, value: number) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) =>
+        l.id === loopId
+          ? { ...l, notes: l.notes.map((n) => n.id === noteId ? { ...n, params: { ...n.params, [key]: value } } : n) }
+          : l
+      ),
+    }))
+  }, [pushUndo])
+
+  const handleSetLoopParam = useCallback((key: string, value: number) => {
     setState((s) => ({
       ...pushUndo(s),
       loops: s.loops.map((l) =>
@@ -252,6 +263,25 @@ export function StudioPage() {
           : l
       ),
     }))
+  }, [pushUndo])
+
+  const handleResetNoteParam = useCallback((key: string) => {
+    setState((s) => {
+      const noteId = s.selectedNoteId
+      if (!noteId) return s
+      return {
+        ...pushUndo(s),
+        loops: s.loops.map((l) =>
+          l.id === s.selectedLoopId
+            ? { ...l, notes: l.notes.map((n) => {
+                if (n.id !== noteId) return n
+                const { [key]: _removed, ...rest } = n.params
+                return { ...n, params: rest }
+              }) }
+            : l
+        ),
+      }
+    })
   }, [pushUndo])
 
   const handleUndo = useCallback(() => {
@@ -418,7 +448,15 @@ export function StudioPage() {
   // ── Derived ────────────────────────────────────────────
 
   const selectedLoop = state.loops.find((l) => l.id === state.selectedLoopId) ?? null
+  const selectedNote = selectedLoop?.notes.find((n) => n.id === state.selectedNoteId) ?? null
   const code = useMemo(() => generateCode(state), [state])
+
+  // Effective params for ParamsBar: note overrides → loop defaults → global defaults
+  const loopParams: Record<string, number> = { ...PARAM_DEFAULTS, ...selectedLoop?.params }
+  const paramsBarParams: Record<string, number> = selectedNote
+    ? { ...loopParams, ...selectedNote.params }
+    : loopParams
+  const paramsBarMode: 'note' | 'loop' = selectedNote ? 'note' : 'loop'
 
   return (
     <div className="studio-page">
@@ -485,8 +523,18 @@ export function StudioPage() {
           />
 
           <ParamsBar
-            params={{ ...PARAM_DEFAULTS, ...selectedLoop?.params }}
-            onParamChange={handleParamChange}
+            params={paramsBarParams}
+            defaults={loopParams}
+            mode={paramsBarMode}
+            synth={selectedLoop?.synth ?? ''}
+            onParamChange={(key, value) => {
+              if (selectedNote && selectedLoop) {
+                handleSetNoteParam(selectedLoop.id, selectedNote.id, key, value)
+              } else {
+                handleSetLoopParam(key, value)
+              }
+            }}
+            onParamReset={handleResetNoteParam}
           />
 
           <CodeOutput

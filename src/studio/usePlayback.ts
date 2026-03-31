@@ -213,12 +213,15 @@ export function usePlayback(state: StudioState): PlaybackControls {
             // If not loaded yet (e.g. loop added after play), skip gracefully.
             const nodeId = getNextNodeId()
             const releaseSec = note.duration * stepDur
+            const effectiveAmp    = note.params['amp']    ?? loop.params['amp']    ?? 1.0
+            const effectiveCutoff = note.params['cutoff'] ?? loop.params['cutoff'] ?? 80
+            const effectiveAttack = note.params['attack'] ?? loop.params['attack'] ?? 0.1
             sonic.send(
               '/s_new', synthName, nodeId, 0, 0,
               'note', note.note,
-              'amp', note.velocity * (loop.params['amp'] ?? 1.0),
-              'cutoff', loop.params['cutoff'] ?? 80,
-              'attack', loop.params['attack'] ?? 0.1,
+              'amp', note.velocity * effectiveAmp,
+              'cutoff', effectiveCutoff,
+              'attack', effectiveAttack,
               'release', releaseSec,
             )
           }

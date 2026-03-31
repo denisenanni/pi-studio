@@ -946,6 +946,30 @@
   flex-shrink: 0;
 }
 
+.studio-params-mode-label {
+  font-size: 8px;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding-right: 4px;
+}
+
+.studio-param--overridden .studio-param-label {
+  color: #7cfc7c88;
+}
+
+.studio-note-param-dot {
+  position: absolute;
+  top: 3px;
+  right: 8px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
 /* ── Code Output Panel ───────────────────────────────────── */
 
 .studio-code-panel {

@@ -1,4 +1,4 @@
-import type { StudioSnapshot, StudioLoop } from './types'
+import type { StudioSnapshot, StudioLoop, StudioNote } from './types'
 
 // ── Param defaults (used to decide what to include in output) ──────────────
 
@@ -13,6 +13,10 @@ const PARAM_DEFAULTS: Record<string, number> = {
 
 function getParam(loop: StudioLoop, key: string): number {
   return loop.params[key] ?? PARAM_DEFAULTS[key] ?? 0
+}
+
+function getEffectiveParam(note: StudioNote, loop: StudioLoop, key: string): number {
+  return note.params[key] ?? loop.params[key] ?? PARAM_DEFAULTS[key] ?? 0
 }
 
 // ── MIDI → Sonic Pi note name ──────────────────────────────
@@ -33,6 +37,9 @@ function stepDuration(loop: StudioLoop, timeSignature: [number, number]): number
   const beatsPerBar = timeSignature[0]
   return (beatsPerBar / loop.steps) * loop.bars
 }
+
+// Synths that support filter resonance
+const RES_SYNTHS = new Set(['prophet', 'tb303', 'hollow', 'dark_ambience', 'blade'])
 
 // ── Synth loop body ────────────────────────────────────────
 
@@ -61,18 +68,22 @@ function buildSynthBody(loop: StudioLoop, timeSignature: [number, number]): stri
 
     const noteName = midiToNoteName(note.note)
     const durBeats = formatBeat(note.duration * stepDur)
-    const ampVal = parseFloat((note.velocity * getParam(loop, 'amp')).toFixed(2))
-    const cutoff  = getParam(loop, 'cutoff')
-    const attack  = getParam(loop, 'attack')
+    const ampVal = parseFloat((note.velocity * getEffectiveParam(note, loop, 'amp')).toFixed(2))
+    const cutoff  = getEffectiveParam(note, loop, 'cutoff')
+    const res     = getEffectiveParam(note, loop, 'res')
+    const attack  = getEffectiveParam(note, loop, 'attack')
+    const release = getEffectiveParam(note, loop, 'release')
 
     // Build param list — only include values that differ from their defaults
     const synthParams: string[] = [`note: :${noteName}`]
     // amp is always included (note velocity × amp param)
     synthParams.push(`amp: ${ampVal}`)
     if (cutoff !== PARAM_DEFAULTS['cutoff']) synthParams.push(`cutoff: ${cutoff}`)
+    if (RES_SYNTHS.has(loop.synth) && res !== PARAM_DEFAULTS['res']) synthParams.push(`res: ${res}`)
     if (attack !== PARAM_DEFAULTS['attack']) synthParams.push(`attack: ${attack}`)
-    // release = note duration (always include — it controls how long the note plays)
-    synthParams.push(`release: ${durBeats}`)
+    // release: use note duration unless overridden per-note
+    const releaseBeats = note.params['release'] !== undefined ? formatBeat(release) : durBeats
+    synthParams.push(`release: ${releaseBeats}`)
 
     lines.push(`  synth :${loop.synth}, ${synthParams.join(', ')}`)
 

@@ -230,6 +230,7 @@ export function DetailPanel({
       duration: 1,
       note: midi,
       velocity: 0.8,
+      params: {},
     }
     onAddNote(loop.id, note)
     onSelectNote(note.id)
@@ -592,6 +593,7 @@ const NoteBlock = memo(function NoteBlock({ note, isSelected, dragPreview, onMou
       onContextMenu={(e) => onContextMenu(e, note)}
     >
       {width >= 24 ? midiToName(midi) : ''}
+      {Object.keys(note.params).length > 0 && <span className="studio-note-param-dot" />}
       <div className="studio-note-block-resize-handle" />
     </div>
   )

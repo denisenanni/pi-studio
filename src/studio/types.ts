@@ -6,6 +6,7 @@ export type StudioNote = {
   duration: number   // in steps
   note: number       // MIDI note number
   velocity: number   // 0–1
+  params: Record<string, number>  // per-note param overrides; empty = inherit from loop
 }
 
 export type StudioLoop = {

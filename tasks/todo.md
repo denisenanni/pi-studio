@@ -591,3 +591,36 @@
 **`src/studio/studio.css`** — `.studio-step.playing` + `.studio-step.active.playing` white highlight; `.studio-roll-playhead` absolute 2px white line, pointer-events none, z-index 10.
 
 **Build:** `yarn build` passes with zero TypeScript errors. No `any`.
+
+---
+
+## Task 20 — Per-Note Params & Params Bar Fix
+
+### Plan
+
+- [x] 1. **`types.ts`** — add `params: Record<string, number>` to `StudioNote`
+- [x] 2. **`StudioPage.tsx`** — update `PLACEHOLDER_NOTE` factory to include `params: {}`; add `handleSetNoteParam` and `handleSetLoopParam` handlers; refactor `handleParamChange` into per-note/per-loop dispatch; pass new props to `ParamsBar` (effective params, mode, onParamReset, synth)
+- [x] 3. **`ParamsBar.tsx`** — make fully controlled (no local state for slider values); accept new props (`params`, `defaults`, `mode: 'note' | 'loop'`, `onParamChange`, `onParamReset`, `synth`); show mode label; double-click resets to loop default; hide `res` unless synth is in resonant synth list
+- [x] 4. **`codeGen.ts`** — add `getEffectiveParam(note, loop, key)` helper; update `buildSynthBody` to use per-note effective params
+- [x] 5. **`usePlayback.ts`** — update synth scheduling to use per-note effective params
+- [x] 6. **`DetailPanel.tsx`** — show dot indicator on note blocks with non-empty `params`
+- [x] 7. **`studio.css`** — style mode label and dot indicator
+- [x] 8. **Build check** — `yarn build` passes, no TypeScript errors, no `any`
+
+### Review
+
+**`src/studio/types.ts`** — `params: Record<string, number>` added to `StudioNote`. Empty object (`{}`) means "inherit everything from loop".
+
+**`src/studio/StudioPage.tsx`** — `PLACEHOLDER_NOTE` now includes `params: {}`. `handleParamChange` replaced by three handlers: `handleSetNoteParam` (updates one note's params), `handleSetLoopParam` (updates loop-level defaults), `handleResetNoteParam` (removes a key from the selected note's params, reverting to loop default). Derived section computes `loopParams` (PARAM_DEFAULTS merged with loop overrides) and `paramsBarParams` (loopParams merged with selected note overrides if a note is selected). `paramsBarMode` switches between `'note'` and `'loop'` based on selection.
+
+**`src/studio/ParamsBar.tsx`** — Fully controlled: no internal state for slider values. New props: `params`, `defaults`, `mode`, `synth`, `onParamChange`, `onParamReset`. Mode label (`NOTE PARAMS` in green / `LOOP DEFAULTS` in grey) rendered at left. `res` slider hidden unless `synth` is in `RES_SYNTHS` set. Double-click in note mode calls `onParamReset` (removes override); in loop mode opens inline edit. Overridden params get `.studio-param--overridden` class (label slightly greener to indicate a note-level value).
+
+**`src/studio/codeGen.ts`** — `getEffectiveParam(note, loop, key)` resolves note.params[key] ?? loop.params[key] ?? PARAM_DEFAULTS[key]. `buildSynthBody` now uses effective params per-note for amp, cutoff, attack. Release still uses note duration by default; if `note.params['release']` is explicitly set, that value is used instead.
+
+**`src/studio/usePlayback.ts`** — Synth scheduling now reads `note.params['amp'] ?? loop.params['amp'] ?? default` for each note, ensuring per-note overrides are heard during playback.
+
+**`src/studio/DetailPanel.tsx`** — New notes created with `params: {}`. `NoteBlock` renders a `.studio-note-param-dot` span when `Object.keys(note.params).length > 0`.
+
+**`src/studio/studio.css`** — `.studio-params-mode-label` (8px, letter-spaced, color set inline from props). `.studio-param--overridden .studio-param-label` (slightly green tint). `.studio-note-param-dot` (4px white circle, top-right corner of note block).
+
+**Build:** `yarn build` passes with zero TypeScript errors. No `any`.

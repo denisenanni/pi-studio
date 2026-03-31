@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as Tone from 'tone'
-import type { StudioState, StudioParams } from './types'
+import type { StudioState } from './types'
 import { getSonicInstance, initSuperSonic, ensureSynthDef, getNextNodeId } from '../hooks/useSuperSonic'
 import { buildEffect } from '../hooks/useFxPlayer'
 
@@ -74,7 +74,7 @@ export function usePlayback(state: StudioState): PlaybackControls {
 
   // ── Helpers ───────────────────────────────────────────
 
-  function getOrCreateSamplePlayer(loopId: string, sampleName: string, fxKey: string, params: StudioParams): Tone.Player {
+  function getOrCreateSamplePlayer(loopId: string, sampleName: string, fxKey: string, loopParams: Record<string, number>): Tone.Player {
     const existing = sampleCacheRef.current.get(loopId)
 
     // Reuse if same sample + same fx
@@ -89,15 +89,16 @@ export function usePlayback(state: StudioState): PlaybackControls {
       existing.fxNode?.dispose()
     }
 
+    const reverbMix = loopParams['reverb_mix'] ?? 0.4
     const fxParams: Record<string, number> = {
-      mix: params.reverb_mix,
+      mix: reverbMix,
     }
 
     let fxNode: FxNode | null = null
     let player: Tone.Player
 
     if (fxKey !== 'none') {
-      fxNode = buildEffect(fxKey, fxParams, params.reverb_mix)
+      fxNode = buildEffect(fxKey, fxParams, reverbMix)
       fxNode.toDestination()
       player = new Tone.Player({
         url: `${import.meta.env.BASE_URL}samples/${sampleName}.flac`,
@@ -215,16 +216,16 @@ export function usePlayback(state: StudioState): PlaybackControls {
             sonic.send(
               '/s_new', synthName, nodeId, 0, 0,
               'note', note.note,
-              'amp', note.velocity * cur.params.amp,
-              'cutoff', cur.params.cutoff,
-              'attack', cur.params.attack,
+              'amp', note.velocity * (loop.params['amp'] ?? 1.0),
+              'cutoff', loop.params['cutoff'] ?? 80,
+              'attack', loop.params['attack'] ?? 0.1,
               'release', releaseSec,
             )
           }
         } else if (loop.type === 'sample') {
           if (!loop.activeSteps[loopStep]) continue
 
-          const player = getOrCreateSamplePlayer(loop.id, loop.sample, loop.fx, cur.params)
+          const player = getOrCreateSamplePlayer(loop.id, loop.sample, loop.fx, loop.params)
           if (player.loaded) {
             try {
               if (player.state === 'started') player.stop(time)

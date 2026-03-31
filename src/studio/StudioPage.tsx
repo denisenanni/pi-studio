@@ -1,6 +1,16 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import './studio.css'
 import type { StudioState, StudioLoop, StudioNote, StudioSnapshot, StudioParams } from './types'
+
+// Default param values — used to merge with per-loop params for ParamsBar display
+const PARAM_DEFAULTS: StudioParams = {
+  cutoff:     80,
+  res:        0.50,
+  attack:     0.10,
+  release:    0.50,
+  amp:        1.0,
+  reverb_mix: 0.40,
+}
 import { usePlayback } from './usePlayback'
 import { Transport } from './Transport'
 import { WaveformStrip } from './WaveformStrip'
@@ -68,6 +78,7 @@ const PLACEHOLDER_LOOPS: StudioLoop[] = [
     ],
     muted: false,
     bars: 1,
+    params: {},
   },
   {
     id: 'loop-beat',
@@ -81,6 +92,7 @@ const PLACEHOLDER_LOOPS: StudioLoop[] = [
     notes: [],
     muted: false,
     bars: 1,
+    params: {},
   },
   {
     id: 'loop-bass',
@@ -94,6 +106,7 @@ const PLACEHOLDER_LOOPS: StudioLoop[] = [
     notes: [],
     muted: false,
     bars: 1,
+    params: {},
   },
 ]
 
@@ -103,15 +116,6 @@ function deriveActiveSteps(notes: StudioNote[], totalSteps: number): boolean[] {
     if (n.step >= 0 && n.step < totalSteps) active[n.step] = true
   }
   return active
-}
-
-const DEFAULT_PARAMS: StudioParams = {
-  cutoff:     80,
-  res:        0.50,
-  attack:     0.10,
-  release:    0.50,
-  amp:        1.0,
-  reverb_mix: 0.40,
 }
 
 function makeInitialState(): StudioState {
@@ -124,7 +128,6 @@ function makeInitialState(): StudioState {
     currentBar: 1,
     currentStep: 1,
     selectedNoteId: null,
-    params: DEFAULT_PARAMS,
     scaleLock: false,
     scaleRoot: 'C',
     scaleName: 'minor',
@@ -241,8 +244,15 @@ export function StudioPage() {
   }, [pushUndo])
 
   const handleParamChange = useCallback((key: keyof StudioParams, value: number) => {
-    setState((s) => ({ ...s, params: { ...s.params, [key]: value } }))
-  }, [])
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) =>
+        l.id === s.selectedLoopId
+          ? { ...l, params: { ...l.params, [key]: value } }
+          : l
+      ),
+    }))
+  }, [pushUndo])
 
   const handleUndo = useCallback(() => {
     setState((s) => {
@@ -474,7 +484,10 @@ export function StudioPage() {
             onSelectNote={handleSelectNote}
           />
 
-          <ParamsBar params={state.params} onParamChange={handleParamChange} />
+          <ParamsBar
+            params={{ ...PARAM_DEFAULTS, ...selectedLoop?.params }}
+            onParamChange={handleParamChange}
+          />
 
           <CodeOutput
             code={code}

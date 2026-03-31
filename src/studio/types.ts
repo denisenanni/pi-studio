@@ -20,6 +20,7 @@ export type StudioLoop = {
   notes: StudioNote[]
   muted: boolean
   bars: number           // loop length in bars (default 1)
+  params: Record<string, number> // synth param overrides (only non-default values need to be set)
 }
 
 export type StudioSnapshot = {
@@ -46,7 +47,6 @@ export type StudioState = StudioSnapshot & {
   currentBar: number
   currentStep: number
   selectedNoteId: string | null   // ephemeral UI selection — not stored in undo snapshot
-  params: StudioParams            // param bar values — not stored in undo snapshot
   undoStack: StudioSnapshot[]
   redoStack: StudioSnapshot[]
 }

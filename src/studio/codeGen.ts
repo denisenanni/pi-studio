@@ -1,5 +1,20 @@
 import type { StudioSnapshot, StudioLoop } from './types'
 
+// ── Param defaults (used to decide what to include in output) ──────────────
+
+const PARAM_DEFAULTS: Record<string, number> = {
+  cutoff:     80,
+  res:        0.50,
+  attack:     0.10,
+  release:    0.50,
+  amp:        1.0,
+  reverb_mix: 0.40,
+}
+
+function getParam(loop: StudioLoop, key: string): number {
+  return loop.params[key] ?? PARAM_DEFAULTS[key] ?? 0
+}
+
 // ── MIDI → Sonic Pi note name ──────────────────────────────
 
 const NOTE_NAMES = ['c', 'cs', 'd', 'ds', 'e', 'f', 'fs', 'g', 'gs', 'a', 'as', 'b'] as const
@@ -46,8 +61,20 @@ function buildSynthBody(loop: StudioLoop, timeSignature: [number, number]): stri
 
     const noteName = midiToNoteName(note.note)
     const durBeats = formatBeat(note.duration * stepDur)
-    const amp = note.velocity.toFixed(2)
-    lines.push(`  synth :${loop.synth}, note: :${noteName}, amp: ${amp}, cutoff: 80, attack: 0.1, release: ${durBeats}`)
+    const ampVal = parseFloat((note.velocity * getParam(loop, 'amp')).toFixed(2))
+    const cutoff  = getParam(loop, 'cutoff')
+    const attack  = getParam(loop, 'attack')
+
+    // Build param list — only include values that differ from their defaults
+    const synthParams: string[] = [`note: :${noteName}`]
+    // amp is always included (note velocity × amp param)
+    synthParams.push(`amp: ${ampVal}`)
+    if (cutoff !== PARAM_DEFAULTS['cutoff']) synthParams.push(`cutoff: ${cutoff}`)
+    if (attack !== PARAM_DEFAULTS['attack']) synthParams.push(`attack: ${attack}`)
+    // release = note duration (always include — it controls how long the note plays)
+    synthParams.push(`release: ${durBeats}`)
+
+    lines.push(`  synth :${loop.synth}, ${synthParams.join(', ')}`)
 
     cursor = note.step + 1
   }
@@ -88,9 +115,10 @@ function buildSampleBody(loop: StudioLoop, timeSignature: [number, number]): str
 
 // ── FX wrapping ────────────────────────────────────────────
 
-function wrapWithFx(fx: string, bodyLines: string[]): string[] {
+function wrapWithFx(fx: string, mix: number, bodyLines: string[]): string[] {
+  const mixPart = mix !== PARAM_DEFAULTS['reverb_mix'] ? `, mix: ${mix}` : ''
   return [
-    `  with_fx :${fx} do`,
+    `  with_fx :${fx}${mixPart} do`,
     ...bodyLines.map((l) => `  ${l}`),
     `  end`,
   ]
@@ -105,7 +133,7 @@ function buildLoopBlock(loop: StudioLoop, timeSignature: [number, number]): stri
       : buildSampleBody(loop, timeSignature)
 
   const wrappedLines =
-    loop.fx !== 'none' ? wrapWithFx(loop.fx, bodyLines) : bodyLines
+    loop.fx !== 'none' ? wrapWithFx(loop.fx, getParam(loop, 'reverb_mix'), bodyLines) : bodyLines
 
   return [
     `live_loop :${loop.name} do`,

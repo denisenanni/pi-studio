@@ -42,6 +42,8 @@ export type StudioParams = {
   cutoff: number     // 0–130
   res: number        // 0–0.99
   attack: number     // 0–4
+  decay: number      // 0–4
+  sustain: number    // 0–1
   release: number    // 0–8
   amp: number        // 0–2
   reverb_mix: number // 0–1

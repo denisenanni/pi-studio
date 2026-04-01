@@ -1098,13 +1098,13 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  height: 44px;
-  padding: 0 16px;
+  min-height: 80px;
+  padding: 10px 16px;
   background: #0d0d0d;
   border-top: 1px solid #1a1a1a;
   flex-shrink: 0;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: visible;
 }
 
 .studio-params-bar::-webkit-scrollbar {
@@ -1197,6 +1197,41 @@
   white-space: nowrap;
   padding-right: 4px;
 }
+
+/* ── ADSR Envelope Box ───────────────────────────────────── */
+
+.studio-adsr-box {
+  position: relative;
+  border: 1px solid #7cfc7c;
+  padding: 12px;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.studio-adsr-title {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #111;
+  padding: 0 6px;
+  color: #7cfc7c;
+  font-size: 9px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+.studio-adsr-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+}
+
+.studio-adsr-grid .studio-param {
+  min-width: 56px;
+}
+
+/* ─────────────────────────────────────────────────────────── */
 
 .studio-param--overridden .studio-param-label {
   color: #7cfc7c88;

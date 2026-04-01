@@ -8,11 +8,16 @@ interface ParamDef {
   step: number;
 }
 
-const PARAMS: ParamDef[] = [
+const ADSR_PARAMS: ParamDef[] = [
+  { key: "attack",  label: "ATTACK",  min: 0, max: 4,    step: 0.01 },
+  { key: "release", label: "RELEASE", min: 0, max: 8,    step: 0.01 },
+  { key: "decay",   label: "DECAY",   min: 0, max: 4,    step: 0.01 },
+  { key: "sustain", label: "SUSTAIN", min: 0, max: 1,    step: 0.01 },
+];
+
+const OTHER_PARAMS: ParamDef[] = [
   { key: "cutoff",     label: "CUTOFF",     min: 0, max: 130,  step: 1    },
   { key: "res",        label: "RES",        min: 0, max: 0.99, step: 0.01 },
-  { key: "attack",     label: "ATTACK",     min: 0, max: 4,    step: 0.01 },
-  { key: "release",    label: "RELEASE",    min: 0, max: 8,    step: 0.01 },
   { key: "amp",        label: "AMP",        min: 0, max: 2,    step: 0.01 },
   { key: "reverb_mix", label: "REVERB MIX", min: 0, max: 1,    step: 0.01 },
 ];
@@ -37,7 +42,7 @@ export function ParamsBar({ params, defaults, mode, synth, onParamChange, onPara
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editRaw, setEditRaw] = useState<string>("");
 
-  const visibleParams = PARAMS.filter((p) => p.key !== "res" || RES_SYNTHS.has(synth));
+  const visibleOtherParams = OTHER_PARAMS.filter((p) => p.key !== "res" || RES_SYNTHS.has(synth));
 
   function startEdit(param: ParamDef) {
     setEditingKey(param.key);
@@ -55,75 +60,93 @@ export function ParamsBar({ params, defaults, mode, synth, onParamChange, onPara
 
   function handleValueDoubleClick(param: ParamDef) {
     if (mode === 'note') {
-      // Reset note override → remove key from note.params (revert to loop default)
       onParamReset(param.key);
     } else {
       startEdit(param);
     }
   }
 
+  function renderParam(param: ParamDef) {
+    const value = params[param.key] ?? 0;
+    const isOverridden = mode === 'note' && defaults[param.key] !== undefined && value !== defaults[param.key];
+    return (
+      <div key={param.key} className={`studio-param${isOverridden ? ' studio-param--overridden' : ''}`}>
+        <div className="studio-param-header">
+          <span className="studio-param-label">{param.label}</span>
+          {editingKey === param.key ? (
+            <input
+              name="studio-param"
+              className="studio-param-value-input"
+              type="number"
+              min={param.min}
+              max={param.max}
+              step={param.step}
+              value={editRaw}
+              autoFocus
+              onChange={(e) => setEditRaw(e.target.value)}
+              onBlur={() => commitEdit(param)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); commitEdit(param); }
+                if (e.key === "Escape") { e.preventDefault(); setEditingKey(null); }
+              }}
+              aria-label={`${param.label} value`}
+            />
+          ) : (
+            <span
+              className="studio-param-value"
+              onDoubleClick={() => handleValueDoubleClick(param)}
+              title={mode === 'note' ? 'Double-click to reset to loop default' : 'Double-click to edit'}
+            >
+              {formatValue(value, param.step)}
+            </span>
+          )}
+        </div>
+        <input
+          className="studio-param-slider"
+          type="range"
+          min={param.min}
+          max={param.max}
+          step={param.step}
+          value={value}
+          onChange={(e) => onParamChange(param.key, parseFloat(e.target.value))}
+          aria-label={param.label}
+        />
+      </div>
+    );
+  }
+
   const modeLabel = mode === 'note' ? 'NOTE PARAMS' : 'LOOP DEFAULTS';
   const modeLabelColor = mode === 'note' ? '#7cfc7c' : '#555';
+
+  // ADSR grid: [attack, release] top row, [decay, sustain] bottom row
+  const [attackParam, releaseParam, decayParam, sustainParam] = ADSR_PARAMS;
 
   return (
     <div className="studio-params-bar">
       <span className="studio-params-mode-label" style={{ color: modeLabelColor }}>
         {modeLabel}
       </span>
-      {visibleParams.map((param) => {
-        // Insert spacer before REVERB MIX
-        const showSpacer = param.key === "reverb_mix";
-        const value = params[param.key] ?? 0;
-        const isOverridden = mode === 'note' && defaults[param.key] !== undefined && value !== defaults[param.key];
-        return (
-          <Fragment key={param.key}>
-            {showSpacer && <div className="studio-params-spacer" />}
-            <div className={`studio-param${isOverridden ? ' studio-param--overridden' : ''}`}>
-              <div className="studio-param-header">
-                <span className="studio-param-label">{param.label}</span>
-                {editingKey === param.key ? (
-                  <input
-                    name="studio-param"
-                    className="studio-param-value-input"
-                    type="number"
-                    min={param.min}
-                    max={param.max}
-                    step={param.step}
-                    value={editRaw}
-                    autoFocus
-                    onChange={(e) => setEditRaw(e.target.value)}
-                    onBlur={() => commitEdit(param)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") { e.preventDefault(); commitEdit(param); }
-                      if (e.key === "Escape") { e.preventDefault(); setEditingKey(null); }
-                    }}
-                    aria-label={`${param.label} value`}
-                  />
-                ) : (
-                  <span
-                    className="studio-param-value"
-                    onDoubleClick={() => handleValueDoubleClick(param)}
-                    onClick={mode === 'loop' ? undefined : undefined}
-                    title={mode === 'note' ? 'Double-click to reset to loop default' : 'Double-click to edit'}
-                  >
-                    {formatValue(value, param.step)}
-                  </span>
-                )}
-              </div>
-              <input
-                className="studio-param-slider"
-                type="range"
-                min={param.min}
-                max={param.max}
-                step={param.step}
-                value={value}
-                onChange={(e) => onParamChange(param.key, parseFloat(e.target.value))}
-                aria-label={param.label}
-              />
-            </div>
-          </Fragment>
-        );
-      })}
+
+      {/* ADSR Envelope Box */}
+      <div className="studio-adsr-box">
+        <span className="studio-adsr-title">ADSR ENVELOPE</span>
+        <div className="studio-adsr-grid">
+          {renderParam(attackParam)}
+          {renderParam(releaseParam)}
+          {renderParam(decayParam)}
+          {renderParam(sustainParam)}
+        </div>
+      </div>
+
+      <div className="studio-params-spacer" />
+
+      {/* Remaining params */}
+      {visibleOtherParams.map((param, i) => (
+        <Fragment key={param.key}>
+          {i > 0 && param.key === "reverb_mix" && <div className="studio-params-spacer" />}
+          {renderParam(param)}
+        </Fragment>
+      ))}
     </div>
   );
 }

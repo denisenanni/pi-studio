@@ -7,6 +7,8 @@ const PARAM_DEFAULTS: StudioParams = {
   cutoff:     80,
   res:        0.50,
   attack:     0.10,
+  decay:      0,
+  sustain:    1,
   release:    0.50,
   amp:        1.0,
   reverb_mix: 0.40,

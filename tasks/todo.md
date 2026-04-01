@@ -734,3 +734,16 @@
 - [ ] 5. **`codeGen.ts`** — replace hardcoded `live_loop :${loop.name} do` with `buildLoopHeader(loop, allLoopNames)`; header returns `live_loop :${loop.name} do` (auto), `live_loop :${loop.name}, sync: :${loop.syncTarget} do` (sync_to, with fallback to auto if target missing), `live_loop :${loop.name}, delay: 0 do` (free); pass `allLoopNames: Set<string>` for target validation
 - [ ] 6. **`studio.css`** — `.studio-sync-indicator`: 10px monospace, `#555`, no margin-top needed (row 2 already has the type badge); `.studio-sync-control`: flex row, gap, align-items center
 - [ ] 7. **Build check** — `yarn build` passes, no TypeScript errors, no `any`
+
+
+---
+
+## Task 26 — ADSR Envelope Box in ParamsBar
+
+### Plan
+
+- [x] 1. **`types.ts`** — add `decay: number` and `sustain: number` to `StudioParams`
+- [x] 2. **`StudioPage.tsx`** — add `decay: 0` and `sustain: 1` to `PARAM_DEFAULTS`
+- [x] 3. **`codeGen.ts`** — add `decay: 0` and `sustain: 1` to `PARAM_DEFAULTS`
+- [x] 4. **`ParamsBar.tsx`** — split PARAMS into `ADSR_PARAMS` (attack, decay, sustain, release) and `OTHER_PARAMS` (cutoff, res, amp, reverb_mix); render ADSR group as a bordered box with title overlapping border; render remaining params to the right as before
+- [x] 5. **`studio.css`** — add `.studio-adsr-box`, `.studio-adsr-title`, `.studio-adsr-grid` styles; increase `.studio-params-bar` height to accommodate the taller ADSR box

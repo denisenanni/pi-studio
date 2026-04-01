@@ -747,3 +747,14 @@
 - [x] 3. **`codeGen.ts`** — add `decay: 0` and `sustain: 1` to `PARAM_DEFAULTS`
 - [x] 4. **`ParamsBar.tsx`** — split PARAMS into `ADSR_PARAMS` (attack, decay, sustain, release) and `OTHER_PARAMS` (cutoff, res, amp, reverb_mix); render ADSR group as a bordered box with title overlapping border; render remaining params to the right as before
 - [x] 5. **`studio.css`** — add `.studio-adsr-box`, `.studio-adsr-title`, `.studio-adsr-grid` styles; increase `.studio-params-bar` height to accommodate the taller ADSR box
+
+---
+
+## Task 27 — Synth-Aware Params Bar
+
+### Plan
+
+- [ ] 1. **`ParamsBar.tsx`** — import `SYNTHS`; compute `supportedKeys` from `synth` prop; define `ALWAYS_ENABLED`; wrap disabled params in `<Tooltip>`; remove old `RES_SYNTHS`
+- [ ] 2. **`studio.css`** — add `.studio-param--disabled` rule (`opacity: 0.3`, `pointer-events: none`, label/value `color: #333`)
+- [ ] 3. **`codeGen.ts`** — emit `decay` when `!= 0` and `sustain` when `!= 1` in synth line
+- [ ] 4. **`usePlayback.ts`** — add `decay` and `sustain` to `sonic.send` call

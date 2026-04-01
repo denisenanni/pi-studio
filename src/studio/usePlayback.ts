@@ -268,12 +268,16 @@ export function usePlayback(state: StudioState): PlaybackControls {
             const effectiveAmp    = note.params['amp']    ?? loop.params['amp']    ?? 1.0
             const effectiveCutoff = note.params['cutoff'] ?? loop.params['cutoff'] ?? 80
             const effectiveAttack = note.params['attack'] ?? loop.params['attack'] ?? 0.1
+            const effectiveDecay   = note.params['decay']   ?? loop.params['decay']   ?? 0
+            const effectiveSustain = note.params['sustain'] ?? loop.params['sustain'] ?? 1
             sonic.send(
               '/s_new', synthName, nodeId, 0, 0,
               'note', note.note,
               'amp', note.velocity * effectiveAmp,
               'cutoff', effectiveCutoff,
               'attack', effectiveAttack,
+              'decay', effectiveDecay,
+              'sustain', effectiveSustain,
               'release', releaseSec,
             )
           }

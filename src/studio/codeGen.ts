@@ -74,6 +74,8 @@ function buildSynthBody(loop: StudioLoop, timeSignature: [number, number]): stri
     const cutoff  = getEffectiveParam(note, loop, 'cutoff')
     const res     = getEffectiveParam(note, loop, 'res')
     const attack  = getEffectiveParam(note, loop, 'attack')
+    const decay   = getEffectiveParam(note, loop, 'decay')
+    const sustain = getEffectiveParam(note, loop, 'sustain')
     const release = getEffectiveParam(note, loop, 'release')
 
     // Build param list — only include values that differ from their defaults
@@ -83,6 +85,8 @@ function buildSynthBody(loop: StudioLoop, timeSignature: [number, number]): stri
     if (cutoff !== PARAM_DEFAULTS['cutoff']) synthParams.push(`cutoff: ${cutoff}`)
     if (RES_SYNTHS.has(loop.synth) && res !== PARAM_DEFAULTS['res']) synthParams.push(`res: ${res}`)
     if (attack !== PARAM_DEFAULTS['attack']) synthParams.push(`attack: ${attack}`)
+    if (decay !== PARAM_DEFAULTS['decay']) synthParams.push(`decay: ${decay}`)
+    if (sustain !== PARAM_DEFAULTS['sustain']) synthParams.push(`sustain: ${sustain}`)
     // release: use note duration unless overridden per-note
     const releaseBeats = note.params['release'] !== undefined ? formatBeat(release) : durBeats
     synthParams.push(`release: ${releaseBeats}`)

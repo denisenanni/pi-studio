@@ -1,4 +1,6 @@
 import { useState, Fragment } from "react";
+import { SYNTHS } from "../data/synths";
+import { Tooltip } from "./Tooltip";
 
 interface ParamDef {
   key: string;
@@ -9,10 +11,10 @@ interface ParamDef {
 }
 
 const ADSR_PARAMS: ParamDef[] = [
-  { key: "attack",  label: "ATTACK",  min: 0, max: 4,    step: 0.01 },
-  { key: "release", label: "RELEASE", min: 0, max: 8,    step: 0.01 },
-  { key: "decay",   label: "DECAY",   min: 0, max: 4,    step: 0.01 },
-  { key: "sustain", label: "SUSTAIN", min: 0, max: 1,    step: 0.01 },
+  { key: "attack",  label: "ATTACK",  min: 0, max: 4,   step: 0.01 },
+  { key: "release", label: "RELEASE", min: 0, max: 8,   step: 0.01 },
+  { key: "decay",   label: "DECAY",   min: 0, max: 4,   step: 0.01 },
+  { key: "sustain", label: "SUSTAIN", min: 0, max: 1,   step: 0.01 },
 ];
 
 const OTHER_PARAMS: ParamDef[] = [
@@ -22,8 +24,8 @@ const OTHER_PARAMS: ParamDef[] = [
   { key: "reverb_mix", label: "REVERB MIX", min: 0, max: 1,    step: 0.01 },
 ];
 
-// Synths that support filter resonance
-const RES_SYNTHS = new Set(["prophet", "tb303", "hollow", "dark_ambience", "blade"]);
+// Params that are always interactive regardless of synth
+const ALWAYS_ENABLED = new Set(["attack", "release", "decay", "sustain", "amp", "reverb_mix"]);
 
 function formatValue(v: number, step: number): string {
   return step < 1 ? v.toFixed(2) : String(Math.round(v));
@@ -42,7 +44,12 @@ export function ParamsBar({ params, defaults, mode, synth, onParamChange, onPara
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editRaw, setEditRaw] = useState<string>("");
 
-  const visibleOtherParams = OTHER_PARAMS.filter((p) => p.key !== "res" || RES_SYNTHS.has(synth));
+  const synthDef = SYNTHS.find((s) => s.name === synth);
+  const supportedKeys = new Set(synthDef?.params.map((p) => p.key) ?? []);
+
+  function isDisabled(key: string): boolean {
+    return !ALWAYS_ENABLED.has(key) && !supportedKeys.has(key);
+  }
 
   function startEdit(param: ParamDef) {
     setEditingKey(param.key);
@@ -67,10 +74,18 @@ export function ParamsBar({ params, defaults, mode, synth, onParamChange, onPara
   }
 
   function renderParam(param: ParamDef) {
+    const disabled = isDisabled(param.key);
     const value = params[param.key] ?? 0;
     const isOverridden = mode === 'note' && defaults[param.key] !== undefined && value !== defaults[param.key];
-    return (
-      <div key={param.key} className={`studio-param${isOverridden ? ' studio-param--overridden' : ''}`}>
+
+    const classes = [
+      'studio-param',
+      isOverridden ? 'studio-param--overridden' : '',
+      disabled ? 'studio-param--disabled' : '',
+    ].filter(Boolean).join(' ');
+
+    const inner = (
+      <div key={param.key} className={classes}>
         <div className="studio-param-header">
           <span className="studio-param-label">{param.label}</span>
           {editingKey === param.key ? (
@@ -113,6 +128,15 @@ export function ParamsBar({ params, defaults, mode, synth, onParamChange, onPara
         />
       </div>
     );
+
+    if (disabled) {
+      return (
+        <Tooltip key={param.key} text={`Not supported by :${synth}`}>
+          {inner}
+        </Tooltip>
+      );
+    }
+    return inner;
   }
 
   const modeLabel = mode === 'note' ? 'NOTE PARAMS' : 'LOOP DEFAULTS';
@@ -141,7 +165,7 @@ export function ParamsBar({ params, defaults, mode, synth, onParamChange, onPara
       <div className="studio-params-spacer" />
 
       {/* Remaining params */}
-      {visibleOtherParams.map((param, i) => (
+      {OTHER_PARAMS.map((param, i) => (
         <Fragment key={param.key}>
           {i > 0 && param.key === "reverb_mix" && <div className="studio-params-spacer" />}
           {renderParam(param)}

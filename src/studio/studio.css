@@ -1237,6 +1237,16 @@
   color: #7cfc7c88;
 }
 
+.studio-param--disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.studio-param--disabled .studio-param-label,
+.studio-param--disabled .studio-param-value {
+  color: #333333;
+}
+
 .studio-note-param-dot {
   position: absolute;
   top: 3px;

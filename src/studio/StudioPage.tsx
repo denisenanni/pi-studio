@@ -1,17 +1,43 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import './studio.css'
-import type { StudioState, StudioLoop, StudioNote, StudioSnapshot, StudioParams, LoopType, SyncMode } from './types'
+import type { StudioState, StudioLoop, StudioNote, StudioSnapshot, LoopType, SyncMode } from './types'
 
 // Default param values — used to merge with per-loop params for ParamsBar display
-const PARAM_DEFAULTS: StudioParams = {
-  cutoff:     80,
-  res:        0.50,
-  attack:     0.10,
-  decay:      0,
-  sustain:    1,
-  release:    0.50,
-  amp:        1.0,
-  reverb_mix: 0.40,
+const PARAM_DEFAULTS: Record<string, number> = {
+  // core
+  cutoff:      80,
+  res:         0.50,
+  attack:      0.10,
+  decay:       0,
+  sustain:     1,
+  release:     0.50,
+  amp:         1.0,
+  reverb_mix:  0.40,
+  // modulation (synth-specific)
+  mod_range:   5,
+  mod_rate:    0.5,
+  divisor:     2,
+  depth:       1,
+  detune:      0.1,
+  wave:        0,
+  punch:       0.5,
+  pulse_width: 0.5,
+  noise_amp:   1,
+  phase:       0.25,
+  // FX params
+  room:        0.6,
+  damp:        0.5,
+  spread:      0.5,
+  distort:     0.5,
+  bits:        8,
+  sample_rate: 10000,
+  gain:        5,
+  cutoff_min:  60,
+  cutoff_max:  120,
+  feedback:    0,
+  pitch:       0,
+  freq:        30,
+  pan:         0,
 }
 import { usePlayback } from './usePlayback'
 import { Transport } from './Transport'
@@ -678,6 +704,7 @@ export function StudioPage() {
             defaults={loopParams}
             mode={paramsBarMode}
             synth={selectedLoop?.synth ?? ''}
+            fx={selectedLoop?.fx ?? 'none'}
             onParamChange={(key, value) => {
               if (selectedNote && selectedLoop) {
                 handleSetNoteParam(selectedLoop.id, selectedNote.id, key, value)

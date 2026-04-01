@@ -758,3 +758,13 @@
 - [ ] 2. **`studio.css`** — add `.studio-param--disabled` rule (`opacity: 0.3`, `pointer-events: none`, label/value `color: #333`)
 - [ ] 3. **`codeGen.ts`** — emit `decay` when `!= 0` and `sustain` when `!= 1` in synth line
 - [ ] 4. **`usePlayback.ts`** — add `decay` and `sustain` to `sonic.send` call
+
+---
+
+## Task 28 — Params Bar Grouped Sections
+
+### Plan
+
+- [ ] 1. **`StudioPage.tsx`** — change `PARAM_DEFAULTS` to `Record<string, number>`; add mod + FX param defaults; pass `fx` prop to `<ParamsBar>`
+- [ ] 2. **`ParamsBar.tsx`** — add `fx` prop; import `SYNTH_FX_LIST`; compute filter/mod/fx param lists dynamically; replace flat OTHER_PARAMS with FILTER, MODULATION, FX PARAMS, MIXER boxes via `renderBox` helper
+- [ ] 3. **`studio.css`** — add `.studio-param-grid` generic grid class

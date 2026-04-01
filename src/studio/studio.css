@@ -1227,6 +1227,11 @@
   gap: 4px 16px;
 }
 
+.studio-param-grid {
+  display: grid;
+  gap: 4px 16px;
+}
+
 .studio-adsr-grid .studio-param {
   min-width: 56px;
 }

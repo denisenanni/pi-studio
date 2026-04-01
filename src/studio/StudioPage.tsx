@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import './studio.css'
-import type { StudioState, StudioLoop, StudioNote, StudioSnapshot, LoopType, SyncMode } from './types'
+import type { StudioState, StudioLoop, StudioNote, StudioSnapshot, LoopType, SyncMode, FxChainEntry } from './types'
 
 // Default param values — used to merge with per-loop params for ParamsBar display
 const PARAM_DEFAULTS: Record<string, number> = {
@@ -12,7 +12,6 @@ const PARAM_DEFAULTS: Record<string, number> = {
   sustain:     1,
   release:     0.50,
   amp:         1.0,
-  reverb_mix:  0.40,
   // modulation (synth-specific)
   mod_range:   5,
   mod_rate:    0.5,
@@ -95,7 +94,7 @@ const PLACEHOLDER_LOOPS: StudioLoop[] = [
     type: 'synth',
     synth: 'prophet',
     sample: '',
-    fx: 'reverb',
+    fxChain: [{ id: 'fx-melody-1', fxKey: 'reverb', params: {} }],
     steps: 16,
     activeSteps: makeSteps(16, [0, 2, 4, 6, 8, 10, 12, 14]),
     notes: [
@@ -116,7 +115,7 @@ const PLACEHOLDER_LOOPS: StudioLoop[] = [
     type: 'sample',
     synth: 'prophet',
     sample: 'bd_haus',
-    fx: 'none',
+    fxChain: [],
     steps: 16,
     activeSteps: makeSteps(16, [0, 4, 8, 12]),
     notes: [],
@@ -132,7 +131,7 @@ const PLACEHOLDER_LOOPS: StudioLoop[] = [
     type: 'synth',
     synth: 'tb303',
     sample: '',
-    fx: 'none',
+    fxChain: [],
     steps: 16,
     activeSteps: makeSteps(16, [0, 3, 6, 9, 12, 15]),
     notes: [],
@@ -206,6 +205,7 @@ export function StudioPage() {
   const [loopsWidth, setLoopsWidth]       = useState(() => readInt(LS_LOOPS_WIDTH, DEFAULT_LOOPS_WIDTH))
   const [codeHeight, setCodeHeight]       = useState(() => readInt(LS_CODE_HEIGHT, DEFAULT_CODE_HEIGHT))
   const [loopsCollapsed, setLoopsCollapsed] = useState(() => readBool(LS_LOOPS_COLLAPSED, false))
+  const [selectedFxId, setSelectedFxId] = useState<string | null>(null)
   const [codeCollapsed, setCodeCollapsed]   = useState(() => readBool(LS_CODE_COLLAPSED, false))
   const [waveCollapsed, setWaveCollapsed]   = useState(() => readBool(LS_WAVE_COLLAPSED, false))
 
@@ -401,7 +401,7 @@ export function StudioPage() {
         type: 'synth',
         synth: 'beep',
         sample: 'bd_haus',
-        fx: 'none',
+        fxChain: [],
         steps: 16,
         activeSteps: new Array(16).fill(false) as boolean[],
         notes: [],
@@ -480,10 +480,45 @@ export function StudioPage() {
     }))
   }, [pushUndo])
 
-  const handleFxChange = useCallback((fx: string) => {
+  const handleAddFx = useCallback((fxKey: string) => {
     setState((s) => ({
       ...pushUndo(s),
-      loops: s.loops.map((l) => l.id === s.selectedLoopId ? { ...l, fx } : l),
+      loops: s.loops.map((l) => {
+        if (l.id !== s.selectedLoopId || l.fxChain.length >= 3) return l
+        const entry: FxChainEntry = { id: crypto.randomUUID(), fxKey, params: {} }
+        return { ...l, fxChain: [...l.fxChain, entry] }
+      }),
+    }))
+  }, [pushUndo])
+
+  const handleRemoveFx = useCallback((loopId: string, fxId: string) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) =>
+        l.id === loopId ? { ...l, fxChain: l.fxChain.filter((e) => e.id !== fxId) } : l
+      ),
+    }))
+  }, [pushUndo])
+
+  const handleSetFxKey = useCallback((loopId: string, fxId: string, fxKey: string) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) =>
+        l.id === loopId
+          ? { ...l, fxChain: l.fxChain.map((e) => e.id === fxId ? { ...e, fxKey, params: {} } : e) }
+          : l
+      ),
+    }))
+  }, [pushUndo])
+
+  const handleSetFxParam = useCallback((loopId: string, fxId: string, key: string, value: number) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) =>
+        l.id === loopId
+          ? { ...l, fxChain: l.fxChain.map((e) => e.id === fxId ? { ...e, params: { ...e.params, [key]: value } } : e) }
+          : l
+      ),
     }))
   }, [pushUndo])
 
@@ -618,6 +653,11 @@ export function StudioPage() {
   const selectedNote = selectedLoop?.notes.find((n) => n.id === state.selectedNoteId) ?? null
   const code = useMemo(() => generateCode(state), [state])
 
+  // Reset selectedFxId to first entry when loop changes
+  useEffect(() => {
+    setSelectedFxId(selectedLoop?.fxChain[0]?.id ?? null)
+  }, [state.selectedLoopId])
+
   // Effective params for ParamsBar: note overrides → loop defaults → global defaults
   const loopParams: Record<string, number> = { ...PARAM_DEFAULTS, ...selectedLoop?.params }
   const paramsBarParams: Record<string, number> = selectedNote
@@ -686,7 +726,11 @@ export function StudioPage() {
             onScaleLockToggle={handleScaleLockToggle}
             onScaleNameChange={handleScaleNameChange}
             onSynthChange={handleSynthChange}
-            onFxChange={handleFxChange}
+            onAddFx={handleAddFx}
+            onRemoveFx={handleRemoveFx}
+            onSetFxKey={handleSetFxKey}
+            selectedFxId={selectedFxId}
+            onSelectFx={setSelectedFxId}
             onStepsChange={handleStepsChange}
             onToggleStep={handleToggleStep}
             onSetLoopSample={handleSetLoopSample}
@@ -704,7 +748,8 @@ export function StudioPage() {
             defaults={loopParams}
             mode={paramsBarMode}
             synth={selectedLoop?.synth ?? ''}
-            fx={selectedLoop?.fx ?? 'none'}
+            fxChain={selectedLoop?.fxChain ?? []}
+            selectedFxId={selectedFxId}
             onParamChange={(key, value) => {
               if (selectedNote && selectedLoop) {
                 handleSetNoteParam(selectedLoop.id, selectedNote.id, key, value)
@@ -712,6 +757,10 @@ export function StudioPage() {
                 handleSetLoopParam(key, value)
               }
             }}
+            onFxParamChange={(fxId: string, key: string, value: number) => {
+              if (selectedLoop) handleSetFxParam(selectedLoop.id, fxId, key, value)
+            }}
+            onSelectFx={setSelectedFxId}
             onParamReset={handleResetNoteParam}
           />
 

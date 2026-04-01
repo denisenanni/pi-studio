@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useMemo, useEffect, memo } from 'react'
-import type { StudioLoop, StudioNote, SyncMode } from './types'
+import type { StudioLoop, StudioNote, SyncMode, FxChainEntry } from './types'
 import { ensureToneLoaded, getTone } from './usePlayback'
 import { SCALES } from '../data/scales'
 import { SYNTHS } from '../data/synths'
@@ -117,7 +117,11 @@ interface DetailPanelProps {
   onScaleLockToggle: () => void
   onScaleNameChange: (name: string) => void
   onSynthChange: (synth: string) => void
-  onFxChange: (fx: string) => void
+  onAddFx: (fxKey: string) => void
+  onRemoveFx: (loopId: string, fxId: string) => void
+  onSetFxKey: (loopId: string, fxId: string, fxKey: string) => void
+  selectedFxId: string | null
+  onSelectFx: (fxId: string | null) => void
   onStepsChange: (steps: number) => void
   onToggleStep: (loopId: string, step: number) => void
   onSetLoopSample: (loopId: string, sample: string) => void
@@ -135,10 +139,25 @@ interface DetailPanelProps {
 export function DetailPanel({
   loop, loops, scaleLock, scaleName, scaleRoot, selectedNoteId, currentStep, isPlaying,
   onScaleLockToggle, onScaleNameChange,
-  onSynthChange, onFxChange, onStepsChange, onToggleStep, onSetLoopSample,
+  onSynthChange, onAddFx, onRemoveFx, selectedFxId, onSelectFx,
+  onStepsChange, onToggleStep, onSetLoopSample,
   onAddNote, onDeleteNote, onMoveNote, onResizeNote, onSetVelocity, onSelectNote,
   onSetSyncMode,
 }: DetailPanelProps) {
+  const [fxDropdownOpen, setFxDropdownOpen] = useState(false)
+  const fxDropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!fxDropdownOpen) return
+    function onClickOutside(e: MouseEvent) {
+      if (fxDropdownRef.current && !fxDropdownRef.current.contains(e.target as Node)) {
+        setFxDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [fxDropdownOpen])
   const scrollRef       = useRef<HTMLDivElement | null>(null)
   const dragRef         = useRef<DragMode>({ type: 'none' })
   const cancelDragRef   = useRef<(() => void) | null>(null)
@@ -435,15 +454,43 @@ export function DetailPanel({
           </select>
 
           <span className="studio-detail-label">FX</span>
-          <select
-            className="studio-detail-select"
-            value={loop?.fx ?? 'none'}
-            onChange={(e) => onFxChange(e.target.value)}
-            disabled={!loop}
-          >
-            <option value="none">none</option>
-            {SYNTH_FX_LIST.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
-          </select>
+          <div className="studio-fx-chain">
+            {(loop?.fxChain ?? []).map((entry: FxChainEntry) => (
+              <span
+                key={entry.id}
+                className={`studio-fx-pill${entry.id === selectedFxId ? ' studio-fx-pill--active' : ''}`}
+                onClick={() => loop && onSelectFx(entry.id)}
+              >
+                :{entry.fxKey}
+                <button
+                  className="studio-fx-pill-remove"
+                  onClick={(e) => { e.stopPropagation(); loop && onRemoveFx(loop.id, entry.id) }}
+                  title={`Remove ${entry.fxKey}`}
+                >×</button>
+              </span>
+            ))}
+            {(loop?.fxChain.length ?? 0) < 3 && (
+              <div className="studio-fx-add-wrap" ref={fxDropdownRef}>
+                <button
+                  className="studio-fx-add-btn"
+                  disabled={!loop}
+                  onClick={() => setFxDropdownOpen((v) => !v)}
+                  title="Add FX"
+                >+</button>
+                {fxDropdownOpen && (
+                  <div className="studio-fx-dropdown">
+                    {SYNTH_FX_LIST.map((f) => (
+                      <button
+                        key={f.key}
+                        className="studio-fx-dropdown-item"
+                        onClick={() => { onAddFx(f.key); setFxDropdownOpen(false) }}
+                      >:{f.key}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </>)}
 
         <span className="studio-detail-label">STEPS</span>

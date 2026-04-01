@@ -3,18 +3,13 @@ import type { StudioSnapshot, StudioLoop, StudioNote } from './types'
 // ── Param defaults (used to decide what to include in output) ──────────────
 
 const PARAM_DEFAULTS: Record<string, number> = {
-  cutoff:     80,
-  res:        0.50,
-  attack:     0.10,
-  decay:      0,
-  sustain:    1,
-  release:    0.50,
-  amp:        1.0,
-  reverb_mix: 0.40,
-}
-
-function getParam(loop: StudioLoop, key: string): number {
-  return loop.params[key] ?? PARAM_DEFAULTS[key] ?? 0
+  cutoff:  80,
+  res:     0.50,
+  attack:  0.10,
+  decay:   0,
+  sustain: 1,
+  release: 0.50,
+  amp:     1.0,
 }
 
 function getEffectiveParam(note: StudioNote, loop: StudioLoop, key: string): number {
@@ -140,10 +135,32 @@ function buildSampleBody(loop: StudioLoop, timeSignature: [number, number]): str
 
 // ── FX wrapping ────────────────────────────────────────────
 
-function wrapWithFx(fx: string, mix: number, bodyLines: string[]): string[] {
-  const mixPart = mix !== PARAM_DEFAULTS['reverb_mix'] ? `, mix: ${mix}` : ''
+const FX_MIX_DEFAULT = 0.4
+
+function wrapWithFxEntry(fxKey: string, fxParams: Record<string, number>, bodyLines: string[]): string[] {
+  const mix = fxParams['mix'] ?? FX_MIX_DEFAULT
+  const mixPart = mix !== FX_MIX_DEFAULT ? `, mix: ${mix}` : ''
+
+  // Emit additional FX-specific params that differ from defaults
+  const FX_DEFAULTS: Record<string, number> = {
+    room: 0.6, damp: 0.5, spread: 0.5, phase: 0.25, decay: 0.5,
+    distort: 0.5, bits: 8, sample_rate: 10000, gain: 5,
+    cutoff_min: 60, cutoff_max: 120, res: 0.8, feedback: 0,
+    depth: 0.5, wave: 3, pitch: 0, pan: 0, freq: 30, cutoff: 100,
+  }
+  const extraParts: string[] = []
+  for (const [key, val] of Object.entries(fxParams)) {
+    if (key === 'mix') continue
+    if (FX_DEFAULTS[key] !== undefined && val !== FX_DEFAULTS[key]) {
+      extraParts.push(`${key}: ${val}`)
+    }
+  }
+
+  const allParts = [mixPart, ...extraParts].filter(Boolean).join(', ')
+  const header = allParts ? `  with_fx :${fxKey}, ${allParts} do` : `  with_fx :${fxKey} do`
+
   return [
-    `  with_fx :${fx}${mixPart} do`,
+    header,
     ...bodyLines.map((l) => `  ${l}`),
     `  end`,
   ]
@@ -167,8 +184,12 @@ function buildLoopBlock(loop: StudioLoop, timeSignature: [number, number]): stri
       ? buildSynthBody(loop, timeSignature)
       : buildSampleBody(loop, timeSignature)
 
-  const wrappedLines =
-    loop.fx !== 'none' ? wrapWithFx(loop.fx, getParam(loop, 'reverb_mix'), bodyLines) : bodyLines
+  // Wrap from innermost (last) to outermost (first)
+  let wrappedLines = bodyLines
+  for (let i = loop.fxChain.length - 1; i >= 0; i--) {
+    const entry = loop.fxChain[i]
+    wrappedLines = wrapWithFxEntry(entry.fxKey, entry.params, wrappedLines)
+  }
 
   return [
     buildLoopHeader(loop),

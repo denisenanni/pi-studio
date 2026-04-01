@@ -2,6 +2,7 @@ import { useState } from "react";
 import { SYNTHS } from "../data/synths";
 import { SYNTH_FX_LIST } from "../data/synthFx";
 import { Tooltip } from "./Tooltip";
+import type { FxChainEntry } from "./types";
 
 interface ParamDef {
   key: string;
@@ -18,9 +19,21 @@ const ADSR_PARAMS: ParamDef[] = [
   { key: "sustain", label: "SUSTAIN", min: 0, max: 1,   step: 0.01 },
 ];
 
-// Params that live in other boxes — not shown in the dynamic mod/filter boxes
 const BASE_KEYS   = new Set(["note", "amp", "attack", "release", "decay", "sustain"]);
 const FILTER_KEYS = new Set(["cutoff", "res"]);
+
+// Default values for FX params (used when no override is set)
+const FX_PARAM_DEFAULTS: Record<string, number> = {
+  mix: 0.4,
+  room: 0.6, damp: 0.5, spread: 0.5,
+  phase: 0.25, decay: 0.5,
+  distort: 0.5,
+  bits: 8, sample_rate: 10000,
+  gain: 5, cutoff: 100,
+  cutoff_min: 60, cutoff_max: 120, res: 0.8,
+  feedback: 0, depth: 0.5, wave: 3,
+  pitch: 0, pan: 0, freq: 30,
+};
 
 function formatValue(v: number, step: number): string {
   return step < 1 ? v.toFixed(2) : String(Math.round(v));
@@ -37,16 +50,23 @@ interface ParamsBarProps {
   defaults: Record<string, number>;
   mode: 'note' | 'loop';
   synth: string;
-  fx: string;
+  fxChain: FxChainEntry[];
+  selectedFxId: string | null;
   onParamChange: (key: string, value: number) => void;
+  onFxParamChange: (fxId: string, key: string, value: number) => void;
+  onSelectFx: (fxId: string | null) => void;
   onParamReset: (key: string) => void;
 }
 
-export function ParamsBar({ params, defaults, mode, synth, fx, onParamChange, onParamReset }: ParamsBarProps) {
+export function ParamsBar({
+  params, defaults, mode, synth,
+  fxChain, selectedFxId,
+  onParamChange, onFxParamChange, onParamReset,
+}: ParamsBarProps) {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editRaw, setEditRaw] = useState<string>("");
 
-  // ── Synth param sets ────────────────────────────────────────
+  // ── Synth param sets ──────────────────────────────────────────
   const synthDef = SYNTHS.find((s) => s.name === synth);
   const synthParamKeys = new Set(synthDef?.params.map((p) => p.key) ?? []);
 
@@ -58,89 +78,90 @@ export function ParamsBar({ params, defaults, mode, synth, fx, onParamChange, on
     .filter((p) => !BASE_KEYS.has(p.key) && !FILTER_KEYS.has(p.key))
     .map(({ key, label, min, max, step }) => ({ key, label, min, max, step }));
 
-  // ── FX param sets ───────────────────────────────────────────
-  const fxDef = fx !== 'none' ? SYNTH_FX_LIST.find((f) => f.key === fx) : undefined;
+  // ── Selected FX entry ─────────────────────────────────────────
+  const selectedFxEntry = fxChain.find((e) => e.id === selectedFxId) ?? fxChain[0] ?? null;
+  const fxDef = selectedFxEntry ? SYNTH_FX_LIST.find((f) => f.key === selectedFxEntry.fxKey) : undefined;
+
   const fxParams: ParamDef[] = (fxDef?.params ?? [])
     .map(({ key, label, min, max, step }) => ({ key, label, min, max, step }));
 
-  const mixerParams: ParamDef[] = [
-    { key: "amp",        label: "AMP",    min: 0, max: 2, step: 0.01 },
-    { key: "reverb_mix", label: "FX MIX", min: 0, max: 1, step: 0.01 },
-  ];
+  // FX PARAMS title includes the active FX name
+  const fxParamsTitle = selectedFxEntry ? `FX PARAMS — ${selectedFxEntry.fxKey}` : 'FX PARAMS';
 
-  // ── Edit handlers ───────────────────────────────────────────
-  function startEdit(param: ParamDef) {
-    setEditingKey(param.key);
-    setEditRaw(formatValue(params[param.key] ?? 0, param.step));
+  // MIX param for MIXER box (per-FX mix stored in fxEntry.params.mix)
+  const mixParam: ParamDef = { key: "mix", label: "FX MIX", min: 0, max: 1, step: 0.01 };
+  const ampParam: ParamDef = { key: "amp", label: "AMP",    min: 0, max: 2, step: 0.01 };
+
+  // ── Param value helpers ───────────────────────────────────────
+  function getLoopParamValue(key: string): number {
+    return params[key] ?? 0;
   }
 
-  function commitEdit(param: ParamDef) {
+  function getFxParamValue(key: string): number {
+    return selectedFxEntry?.params[key] ?? FX_PARAM_DEFAULTS[key] ?? 0;
+  }
+
+  // ── Edit handlers ─────────────────────────────────────────────
+  function startEditLoop(param: ParamDef) {
+    setEditingKey(param.key);
+    setEditRaw(formatValue(getLoopParamValue(param.key), param.step));
+  }
+
+  function startEditFx(param: ParamDef) {
+    setEditingKey(`fx:${param.key}`);
+    setEditRaw(formatValue(getFxParamValue(param.key), param.step));
+  }
+
+  function commitEditLoop(param: ParamDef) {
     const parsed = parseFloat(editRaw);
     if (!isNaN(parsed)) {
-      const clamped = Math.min(param.max, Math.max(param.min, parsed));
-      onParamChange(param.key, clamped);
+      onParamChange(param.key, Math.min(param.max, Math.max(param.min, parsed)));
     }
     setEditingKey(null);
   }
 
-  function handleValueDoubleClick(param: ParamDef) {
-    if (mode === 'note') {
-      onParamReset(param.key);
-    } else {
-      startEdit(param);
+  function commitEditFx(param: ParamDef) {
+    if (!selectedFxEntry) { setEditingKey(null); return; }
+    const parsed = parseFloat(editRaw);
+    if (!isNaN(parsed)) {
+      onFxParamChange(selectedFxEntry.id, param.key, Math.min(param.max, Math.max(param.min, parsed)));
     }
+    setEditingKey(null);
   }
 
-  // ── Single param renderer ───────────────────────────────────
-  function renderParam(param: ParamDef, disabled = false, disabledTooltip = '') {
-    const value = params[param.key] ?? 0;
+  // ── Render a loop-level param ─────────────────────────────────
+  function renderLoopParam(param: ParamDef, disabled = false, disabledTooltip = '') {
+    const value = getLoopParamValue(param.key);
     const isOverridden = mode === 'note' && defaults[param.key] !== undefined && value !== defaults[param.key];
+    const editKey = param.key;
 
-    const classes = [
-      'studio-param',
-      isOverridden ? 'studio-param--overridden' : '',
-      disabled ? 'studio-param--disabled' : '',
-    ].filter(Boolean).join(' ');
+    const classes = ['studio-param', isOverridden ? 'studio-param--overridden' : '', disabled ? 'studio-param--disabled' : '']
+      .filter(Boolean).join(' ');
 
     const inner = (
       <div className={classes}>
         <div className="studio-param-header">
           <span className="studio-param-label">{param.label}</span>
-          {editingKey === param.key ? (
-            <input
-              name="studio-param"
-              className="studio-param-value-input"
-              type="number"
-              min={param.min}
-              max={param.max}
-              step={param.step}
-              value={editRaw}
-              autoFocus
+          {editingKey === editKey ? (
+            <input name="studio-param" className="studio-param-value-input" type="number"
+              min={param.min} max={param.max} step={param.step} value={editRaw} autoFocus
               onChange={(e) => setEditRaw(e.target.value)}
-              onBlur={() => commitEdit(param)}
+              onBlur={() => commitEditLoop(param)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") { e.preventDefault(); commitEdit(param); }
+                if (e.key === "Enter") { e.preventDefault(); commitEditLoop(param); }
                 if (e.key === "Escape") { e.preventDefault(); setEditingKey(null); }
               }}
               aria-label={`${param.label} value`}
             />
           ) : (
-            <span
-              className="studio-param-value"
-              onDoubleClick={() => handleValueDoubleClick(param)}
+            <span className="studio-param-value"
+              onDoubleClick={() => mode === 'note' ? onParamReset(param.key) : startEditLoop(param)}
               title={mode === 'note' ? 'Double-click to reset to loop default' : 'Double-click to edit'}
-            >
-              {formatValue(value, param.step)}
-            </span>
+            >{formatValue(value, param.step)}</span>
           )}
         </div>
-        <input
-          className="studio-param-slider"
-          type="range"
-          min={param.min}
-          max={param.max}
-          step={param.step}
-          value={value}
+        <input className="studio-param-slider" type="range"
+          min={param.min} max={param.max} step={param.step} value={value}
           onChange={(e) => onParamChange(param.key, parseFloat(e.target.value))}
           aria-label={param.label}
         />
@@ -148,16 +169,55 @@ export function ParamsBar({ params, defaults, mode, synth, fx, onParamChange, on
     );
 
     if (disabled && disabledTooltip) {
-      return (
-        <Tooltip key={param.key} text={disabledTooltip}>
-          {inner}
-        </Tooltip>
-      );
+      return <Tooltip key={param.key} text={disabledTooltip}>{inner}</Tooltip>;
     }
     return <div key={param.key}>{inner}</div>;
   }
 
-  // ── Box renderer ────────────────────────────────────────────
+  // ── Render an FX-level param ──────────────────────────────────
+  function renderFxParam(param: ParamDef, disabled = false, disabledTooltip = '') {
+    const value = getFxParamValue(param.key);
+    const editKey = `fx:${param.key}`;
+
+    const classes = ['studio-param', disabled ? 'studio-param--disabled' : ''].filter(Boolean).join(' ');
+
+    const inner = (
+      <div className={classes}>
+        <div className="studio-param-header">
+          <span className="studio-param-label">{param.label}</span>
+          {editingKey === editKey ? (
+            <input name="studio-param" className="studio-param-value-input" type="number"
+              min={param.min} max={param.max} step={param.step} value={editRaw} autoFocus
+              onChange={(e) => setEditRaw(e.target.value)}
+              onBlur={() => commitEditFx(param)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); commitEditFx(param); }
+                if (e.key === "Escape") { e.preventDefault(); setEditingKey(null); }
+              }}
+              aria-label={`${param.label} value`}
+            />
+          ) : (
+            <span className="studio-param-value"
+              onDoubleClick={() => startEditFx(param)}
+              title="Double-click to edit"
+            >{formatValue(value, param.step)}</span>
+          )}
+        </div>
+        <input className="studio-param-slider" type="range"
+          min={param.min} max={param.max} step={param.step} value={value}
+          onChange={(e) => selectedFxEntry && onFxParamChange(selectedFxEntry.id, param.key, parseFloat(e.target.value))}
+          aria-label={param.label}
+        />
+      </div>
+    );
+
+    if (disabled && disabledTooltip) {
+      return <Tooltip key={param.key} text={disabledTooltip}>{inner}</Tooltip>;
+    }
+    return <div key={param.key}>{inner}</div>;
+  }
+
+  // ── Generic box renderer (loop params) ───────────────────────
   function renderBox(title: string, boxParams: ParamDef[], options?: { disabledKeys?: Set<string>; disabledTooltip?: string }) {
     if (boxParams.length === 0) return null;
     const cols = gridCols(boxParams.length);
@@ -166,23 +226,17 @@ export function ParamsBar({ params, defaults, mode, synth, fx, onParamChange, on
     return (
       <div className="studio-adsr-box">
         <span className="studio-adsr-title">{title}</span>
-        <div
-          className="studio-param-grid"
-          style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
-        >
-          {boxParams.map((p) => renderParam(p, disabledKeys.has(p.key), disabledTooltip))}
+        <div className="studio-param-grid" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+          {boxParams.map((p) => renderLoopParam(p, disabledKeys.has(p.key), disabledTooltip))}
         </div>
       </div>
     );
   }
 
-  // ── ADSR box (fixed 2×2 layout) ─────────────────────────────
+  // ── ADSR box ──────────────────────────────────────────────────
   const [attackParam, releaseParam, decayParam, sustainParam] = ADSR_PARAMS;
 
-  // ── Mixer: mix disabled when no FX ─────────────────────────
-  const mixerDisabled = fx === 'none' ? new Set(['reverb_mix']) : new Set<string>();
-
-  // ── Mode label ──────────────────────────────────────────────
+  // ── Mode label ────────────────────────────────────────────────
   const modeLabel = mode === 'note' ? 'NOTE PARAMS' : 'LOOP DEFAULTS';
   const modeLabelColor = mode === 'note' ? '#7cfc7c' : '#555';
 
@@ -196,10 +250,10 @@ export function ParamsBar({ params, defaults, mode, synth, fx, onParamChange, on
       <div className="studio-adsr-box">
         <span className="studio-adsr-title">ADSR ENVELOPE</span>
         <div className="studio-adsr-grid">
-          {renderParam(attackParam)}
-          {renderParam(releaseParam)}
-          {renderParam(decayParam)}
-          {renderParam(sustainParam)}
+          {renderLoopParam(attackParam)}
+          {renderLoopParam(releaseParam)}
+          {renderLoopParam(decayParam)}
+          {renderLoopParam(sustainParam)}
         </div>
       </div>
 
@@ -212,14 +266,26 @@ export function ParamsBar({ params, defaults, mode, synth, fx, onParamChange, on
       {/* Modulation — hidden when synth has no mod params */}
       {renderBox('MODULATION', modParams)}
 
-      {/* FX Params — hidden when no FX selected */}
-      {renderBox('FX PARAMS', fxParams)}
+      {/* FX Params — hidden when no FX in chain */}
+      {fxParams.length > 0 && (
+        <div className="studio-adsr-box">
+          <span className="studio-adsr-title">{fxParamsTitle}</span>
+          <div className="studio-param-grid" style={{ gridTemplateColumns: `repeat(${gridCols(fxParams.length)}, 1fr)` }}>
+            {fxParams.map((p) => renderFxParam(p))}
+          </div>
+        </div>
+      )}
 
       {/* Mixer — always visible */}
-      {renderBox('MIXER', mixerParams, {
-        disabledKeys: mixerDisabled,
-        disabledTooltip: 'No FX selected',
-      })}
+      <div className="studio-adsr-box">
+        <span className="studio-adsr-title">MIXER</span>
+        <div className="studio-param-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+          {renderLoopParam(ampParam)}
+          {fxChain.length > 0
+            ? renderFxParam(mixParam)
+            : renderLoopParam({ ...mixParam }, true, 'No FX selected')}
+        </div>
+      </div>
     </div>
   );
 }

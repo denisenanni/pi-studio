@@ -776,3 +776,17 @@
 ### Plan
 
 - [ ] 1. **`studio.css`** — replace `.studio-transport-bpm-input` with spinner-free style matching time signature inputs; add focus and spin-button rules
+
+---
+
+## Task 30 — Multiple FX Chain Per Loop
+
+### Plan
+
+- [ ] 1. **`types.ts`** — add `FxChainEntry` type (`id`, `fxKey`, `params`); replace `fx: string` with `fxChain: FxChainEntry[]` on `StudioLoop`
+- [ ] 2. **`StudioPage.tsx`** — update `PLACEHOLDER_LOOPS` and `handleAddLoop` to use `fxChain`; add `selectedFxId: string | null` useState; replace `handleFxChange` with `handleAddFx`, `handleRemoveFx`, `handleSetFxKey`, `handleSetFxParam`; add `handleSelectFx`; reset `selectedFxId` when selected loop changes; remove `reverb_mix` from `PARAM_DEFAULTS` (mix now lives in `FxChainEntry.params`); update props to `DetailPanel` and `ParamsBar`
+- [ ] 3. **`DetailPanel.tsx`** — replace `onFxChange` with `onAddFx`, `onRemoveFx`, `onSetFxKey`, `onSelectFx` + `fxChain`/`selectedFxId` props; replace FX `<select>` with pill list + `+` add button with dropdown; `×` removes entry; clicking pill calls `onSelectFx`
+- [ ] 4. **`ParamsBar.tsx`** — replace `fx: string` with `fxChain`, `selectedFxId`, `onFxParamChange`, `onSelectFx` props; FX PARAMS reads from `selectedFxEntry.params`; MIXER mix reads from `selectedFxEntry.params.mix`; add `valueSource`/`onChange` overrides to `renderParam` so FX params route to `onFxParamChange`
+- [ ] 5. **`codeGen.ts`** — replace single `wrapWithFx` call with loop over `fxChain` (index 0 = outermost); read mix from `fxEntry.params.mix`; remove `reverb_mix` from `PARAM_DEFAULTS`
+- [ ] 6. **`usePlayback.ts`** — update sample player to use `loop.fxChain[0]` instead of `loop.fx`; adapt `getOrCreateSamplePlayer` signature
+- [ ] 7. **`studio.css`** — add `.studio-fx-chain`, `.studio-fx-pill`, `.studio-fx-pill--active`, `.studio-fx-add-btn`, `.studio-fx-dropdown` styles

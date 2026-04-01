@@ -113,7 +113,7 @@ export function usePlayback(state: StudioState): PlaybackControls {
   // These are only ever called from the Transport callback (post-play) so
   // _tone and _buildEffect are guaranteed non-null.
 
-  function getOrCreateSamplePlayer(loopId: string, sampleName: string, fxKey: string, loopParams: Record<string, number>): ToneNS.Player {
+  function getOrCreateSamplePlayer(loopId: string, sampleName: string, fxKey: string, fxEntryParams: Record<string, number>): ToneNS.Player {
     const Tone = _tone!
     const buildEffect = _buildEffect!
 
@@ -131,16 +131,13 @@ export function usePlayback(state: StudioState): PlaybackControls {
       existing.fxNode?.dispose()
     }
 
-    const reverbMix = loopParams['reverb_mix'] ?? 0.4
-    const fxParams: Record<string, number> = {
-      mix: reverbMix,
-    }
+    const mix = fxEntryParams['mix'] ?? 0.4
 
     let fxNode: FxNode | null = null
     let player: ToneNS.Player
 
     if (fxKey !== 'none') {
-      fxNode = buildEffect(fxKey, fxParams, reverbMix)
+      fxNode = buildEffect(fxKey, fxEntryParams, mix)
       fxNode.toDestination()
       player = new Tone.Player({
         url: `${import.meta.env.BASE_URL}samples/${sampleName}.flac`,
@@ -284,7 +281,8 @@ export function usePlayback(state: StudioState): PlaybackControls {
         } else if (loop.type === 'sample') {
           if (!loop.activeSteps[loopStep]) continue
 
-          const player = getOrCreateSamplePlayer(loop.id, loop.sample, loop.fx, loop.params)
+          const firstFx = loop.fxChain[0]
+          const player = getOrCreateSamplePlayer(loop.id, loop.sample, firstFx?.fxKey ?? 'none', firstFx?.params ?? {})
           if (player.loaded) {
             try {
               if (player.state === 'started') player.stop(time)

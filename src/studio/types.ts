@@ -2,6 +2,12 @@ export type LoopType = 'synth' | 'sample'
 
 export type SyncMode = 'auto' | 'sync_to' | 'free'
 
+export type FxChainEntry = {
+  id: string
+  fxKey: string                    // e.g. "reverb"
+  params: Record<string, number>   // per-FX param overrides (includes mix)
+}
+
 export type StudioNote = {
   id: string
   step: number
@@ -17,7 +23,7 @@ export type StudioLoop = {
   type: LoopType
   synth: string          // e.g. "prophet"
   sample: string         // e.g. "bd_haus" (used when type === 'sample')
-  fx: string             // e.g. "reverb" or "none"
+  fxChain: FxChainEntry[]  // up to 3 FX; empty = no FX
   steps: number          // 4 | 8 | 16 | 32
   activeSteps: boolean[] // length === steps
   notes: StudioNote[]
@@ -39,14 +45,13 @@ export type StudioSnapshot = {
 }
 
 export type StudioParams = {
-  cutoff: number     // 0–130
-  res: number        // 0–0.99
-  attack: number     // 0–4
-  decay: number      // 0–4
-  sustain: number    // 0–1
-  release: number    // 0–8
-  amp: number        // 0–2
-  reverb_mix: number // 0–1
+  cutoff:  number  // 0–130
+  res:     number  // 0–0.99
+  attack:  number  // 0–4
+  decay:   number  // 0–4
+  sustain: number  // 0–1
+  release: number  // 0–8
+  amp:     number  // 0–2
 }
 
 export type StudioState = StudioSnapshot & {

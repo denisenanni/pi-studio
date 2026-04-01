@@ -768,3 +768,11 @@
 - [ ] 1. **`StudioPage.tsx`** — change `PARAM_DEFAULTS` to `Record<string, number>`; add mod + FX param defaults; pass `fx` prop to `<ParamsBar>`
 - [ ] 2. **`ParamsBar.tsx`** — add `fx` prop; import `SYNTH_FX_LIST`; compute filter/mod/fx param lists dynamically; replace flat OTHER_PARAMS with FILTER, MODULATION, FX PARAMS, MIXER boxes via `renderBox` helper
 - [ ] 3. **`studio.css`** — add `.studio-param-grid` generic grid class
+
+---
+
+## Task 29 — Style BPM Input in Transport Bar
+
+### Plan
+
+- [ ] 1. **`studio.css`** — replace `.studio-transport-bpm-input` with spinner-free style matching time signature inputs; add focus and spin-button rules

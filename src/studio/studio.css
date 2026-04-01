@@ -1110,6 +1110,8 @@
 
 .studio-params-bar {
   display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
   align-items: center;
   gap: 16px;
   min-height: 80px;
@@ -1209,7 +1211,7 @@
   letter-spacing: 1px;
   flex-shrink: 0;
   white-space: nowrap;
-  padding-right: 4px;
+  align-self: center;
 }
 
 /* ── ADSR Envelope Box ───────────────────────────────────── */
@@ -1220,6 +1222,7 @@
   padding: 12px;
   background: transparent;
   flex-shrink: 0;
+  align-self: center;
 }
 
 .studio-adsr-title {

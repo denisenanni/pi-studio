@@ -318,7 +318,7 @@ export function StudioPage() {
           l.id === s.selectedLoopId
             ? { ...l, notes: l.notes.map((n) => {
                 if (n.id !== noteId) return n
-                const { [key]: _removed, ...rest } = n.params
+                const rest = Object.fromEntries(Object.entries(n.params).filter(([k]) => k !== key))
                 return { ...n, params: rest }
               }) }
             : l

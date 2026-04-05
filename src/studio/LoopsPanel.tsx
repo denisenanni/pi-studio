@@ -38,6 +38,7 @@ export function LoopsPanel({
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const listRef         = useRef<HTMLDivElement>(null)
   const inputRef        = useRef<HTMLInputElement>(null)
+  const dragStateRef    = useRef<{ idx: number; dropIdx: number } | null>(null)
 
   // Clear confirm timer on unmount
   useEffect(() => () => {
@@ -72,33 +73,49 @@ export function LoopsPanel({
   const handleDragStart = useCallback((e: React.MouseEvent, idx: number) => {
     e.preventDefault()
     e.stopPropagation()
+    dragStateRef.current = { idx, dropIdx: idx }
     setDragState({ idx, dropIdx: idx })
 
     const onMove = (ev: MouseEvent) => {
-      if (!listRef.current) return
+      if (!listRef.current || !dragStateRef.current) return
       const strips = Array.from(listRef.current.querySelectorAll<HTMLElement>('.studio-loop-strip'))
       let dropIdx = strips.length
       for (let i = 0; i < strips.length; i++) {
         const rect = strips[i].getBoundingClientRect()
         if (ev.clientY < rect.top + rect.height / 2) { dropIdx = i; break }
       }
-      setDragState((prev) => prev ? { ...prev, dropIdx } : null)
+      dragStateRef.current = { ...dragStateRef.current, dropIdx }
+      setDragState(dragStateRef.current)
+    }
+
+    const cleanup = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('keydown', onKeyDown)
     }
 
     const onUp = () => {
-      setDragState((prev) => {
-        if (prev && prev.dropIdx !== prev.idx) {
-          const to = prev.dropIdx > prev.idx ? prev.dropIdx - 1 : prev.dropIdx
-          onReorderLoops(prev.idx, to)
-        }
-        return null
-      })
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
+      const ds = dragStateRef.current
+      cleanup()
+      dragStateRef.current = null
+      setDragState(null)
+      if (ds && ds.dropIdx !== ds.idx) {
+        const to = ds.dropIdx > ds.idx ? ds.dropIdx - 1 : ds.dropIdx
+        onReorderLoops(ds.idx, to)
+      }
+    }
+
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') {
+        cleanup()
+        dragStateRef.current = null
+        setDragState(null)
+      }
     }
 
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
+    window.addEventListener('keydown', onKeyDown)
   }, [onReorderLoops])
 
   return (
@@ -116,14 +133,15 @@ export function LoopsPanel({
         >
           {collapsed ? '›' : '‹'}
         </button>
-        <button
-          className="studio-loops-add"
-          title={loops.length >= 8 ? 'Maximum 8 loops' : 'Add loop'}
-          onClick={loops.length < 8 ? onAddLoop : undefined}
-          style={{ opacity: loops.length >= 8 ? 0.3 : 1, cursor: loops.length >= 8 ? 'default' : 'pointer' }}
-        >
-          +
-        </button>
+        <Tooltip text={loops.length >= 8 ? 'Max 8 loops' : 'Add loop'}>
+          <button
+            className="studio-loops-add"
+            onClick={loops.length < 8 ? onAddLoop : undefined}
+            style={{ opacity: loops.length >= 8 ? 0.3 : 1, cursor: loops.length >= 8 ? 'default' : 'pointer' }}
+          >
+            +
+          </button>
+        </Tooltip>
       </div>
 
       {/* Collapsed vertical label */}
@@ -144,13 +162,14 @@ export function LoopsPanel({
               onClick={() => onSelectLoop(loop.id)}
             >
               {/* Drag handle */}
-              <div
-                className="studio-loop-drag-handle"
-                onMouseDown={(e) => handleDragStart(e, idx)}
-                title="Drag to reorder"
-              >
-                ≡
-              </div>
+              <Tooltip text="Drag to reorder">
+                <div
+                  className="studio-loop-drag-handle"
+                  onMouseDown={(e) => handleDragStart(e, idx)}
+                >
+                  ≡
+                </div>
+              </Tooltip>
 
               {/* Row 1: name + controls */}
               <div className="studio-loop-strip-row1">

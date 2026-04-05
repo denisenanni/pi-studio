@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { Tooltip } from './Tooltip'
 
 interface TransportProps {
   bpm: number
@@ -139,13 +140,14 @@ export function Transport({
       </div>
 
       {/* Tap tempo */}
-      <button
-        className={`studio-transport-tap${tapActive ? ' active' : ''}`}
-        onClick={handleTap}
-        title="Tap to set BPM"
-      >
-        TAP
-      </button>
+      <Tooltip text="Tap to set BPM">
+        <button
+          className={`studio-transport-tap${tapActive ? ' active' : ''}`}
+          onClick={handleTap}
+        >
+          TAP
+        </button>
+      </Tooltip>
 
       <span className="studio-transport-divider">|</span>
 
@@ -179,13 +181,15 @@ export function Transport({
       <span className="studio-transport-divider">|</span>
 
       {/* Play / Stop */}
-      <button
-        className="studio-transport-play"
-        onClick={isLoading ? undefined : isPlaying ? onStop : onPlay}
-        disabled={isLoading}
-      >
-        {isLoading ? 'Loading...' : isPlaying ? '■ Stop' : '▶ Play'}
-      </button>
+      <Tooltip text={isPlaying ? 'Stop (Space)' : 'Play (Space)'}>
+        <button
+          className="studio-transport-play"
+          onClick={isLoading ? undefined : isPlaying ? onStop : onPlay}
+          disabled={isLoading}
+        >
+          {isLoading ? 'Loading...' : isPlaying ? '■ Stop' : '▶ Play'}
+        </button>
+      </Tooltip>
 
       {/* Bar counter */}
       <span className="studio-bar-counter">
@@ -202,25 +206,29 @@ export function Transport({
       )}
 
       {/* Undo / Redo */}
-      <button
-        className={`studio-transport-icon-btn${!canUndo ? ' studio-transport-icon-btn--disabled' : ''}`}
-        onClick={canUndo ? onUndo : undefined}
-        title="Undo (Cmd+Z)"
-      >
-        ↩
-      </button>
-      <button
-        className={`studio-transport-icon-btn${!canRedo ? ' studio-transport-icon-btn--disabled' : ''}`}
-        onClick={canRedo ? onRedo : undefined}
-        title="Redo (Cmd+Shift+Z)"
-      >
-        ↪
-      </button>
+      <Tooltip text="Undo (Cmd+Z)">
+        <button
+          className={`studio-transport-icon-btn${!canUndo ? ' studio-transport-icon-btn--disabled' : ''}`}
+          onClick={canUndo ? onUndo : undefined}
+        >
+          ↩
+        </button>
+      </Tooltip>
+      <Tooltip text="Redo (Cmd+Shift+Z)">
+        <button
+          className={`studio-transport-icon-btn${!canRedo ? ' studio-transport-icon-btn--disabled' : ''}`}
+          onClick={canRedo ? onRedo : undefined}
+        >
+          ↪
+        </button>
+      </Tooltip>
 
       {/* Export */}
-      <button className="studio-transport-export" onClick={handleExportClick} title="Export .rb file">
-        {exported ? '✓ Exported' : 'EXPORT .rb'}
-      </button>
+      <Tooltip text="Download Sonic Pi file">
+        <button className="studio-transport-export" onClick={handleExportClick}>
+          {exported ? '✓ Exported' : 'EXPORT .rb'}
+        </button>
+      </Tooltip>
     </div>
   )
 }

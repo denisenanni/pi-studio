@@ -91,7 +91,7 @@
   border: none;
   border-bottom: 1px solid #2a2a2a;
   color: var(--accent, #7cfc7c);
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-family: "SF Mono", "Fira Code", "Consolas", monospace;
   font-size: 16px;
   font-weight: bold;
   width: 44px;
@@ -183,7 +183,6 @@
   background: var(--accent, #7cfc7c);
   color: #111111;
 }
-
 
 .studio-bar-counter {
   font-size: 11px;
@@ -541,7 +540,10 @@
   font-family: inherit;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+  transition:
+    opacity 0.15s,
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .studio-loop-strip:hover .studio-loop-delete {
@@ -733,7 +735,7 @@
   border: 1px solid #2a2a2a;
   color: #888888;
   font-size: 10px;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: "Courier New", Courier, monospace;
   padding: 3px 8px;
   white-space: nowrap;
   pointer-events: none;
@@ -1472,20 +1474,32 @@
 }
 
 .studio-step-params-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 4px 16px;
-  max-width: 540px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: flex-start;
+}
+
+.studio-step-params .studio-param,
+.studio-step-params .studio-param--overridden {
+  min-width: 100px;
+  flex: 1 1 100px;
 }
 
 /* Keep label+value+~ clustered together within step params (columns can be wide) */
 .studio-step-params .studio-param-header {
   justify-content: flex-start;
   gap: 6px;
+  flex-wrap: nowrap;
 }
 
 .studio-step-params .studio-param-label {
   min-width: 28px;
+  white-space: nowrap;
+}
+
+.studio-step-params .studio-param-value {
+  white-space: nowrap;
 }
 
 /* ── Code Output Panel ───────────────────────────────────── */

@@ -783,10 +783,25 @@
 
 ### Plan
 
-- [ ] 1. **`types.ts`** — add `FxChainEntry` type (`id`, `fxKey`, `params`); replace `fx: string` with `fxChain: FxChainEntry[]` on `StudioLoop`
-- [ ] 2. **`StudioPage.tsx`** — update `PLACEHOLDER_LOOPS` and `handleAddLoop` to use `fxChain`; add `selectedFxId: string | null` useState; replace `handleFxChange` with `handleAddFx`, `handleRemoveFx`, `handleSetFxKey`, `handleSetFxParam`; add `handleSelectFx`; reset `selectedFxId` when selected loop changes; remove `reverb_mix` from `PARAM_DEFAULTS` (mix now lives in `FxChainEntry.params`); update props to `DetailPanel` and `ParamsBar`
-- [ ] 3. **`DetailPanel.tsx`** — replace `onFxChange` with `onAddFx`, `onRemoveFx`, `onSetFxKey`, `onSelectFx` + `fxChain`/`selectedFxId` props; replace FX `<select>` with pill list + `+` add button with dropdown; `×` removes entry; clicking pill calls `onSelectFx`
-- [ ] 4. **`ParamsBar.tsx`** — replace `fx: string` with `fxChain`, `selectedFxId`, `onFxParamChange`, `onSelectFx` props; FX PARAMS reads from `selectedFxEntry.params`; MIXER mix reads from `selectedFxEntry.params.mix`; add `valueSource`/`onChange` overrides to `renderParam` so FX params route to `onFxParamChange`
-- [ ] 5. **`codeGen.ts`** — replace single `wrapWithFx` call with loop over `fxChain` (index 0 = outermost); read mix from `fxEntry.params.mix`; remove `reverb_mix` from `PARAM_DEFAULTS`
-- [ ] 6. **`usePlayback.ts`** — update sample player to use `loop.fxChain[0]` instead of `loop.fx`; adapt `getOrCreateSamplePlayer` signature
-- [ ] 7. **`studio.css`** — add `.studio-fx-chain`, `.studio-fx-pill`, `.studio-fx-pill--active`, `.studio-fx-add-btn`, `.studio-fx-dropdown` styles
+- [x] 1. **`types.ts`** — add `FxChainEntry` type (`id`, `fxKey`, `params`); replace `fx: string` with `fxChain: FxChainEntry[]` on `StudioLoop`
+- [x] 2. **`StudioPage.tsx`** — update `PLACEHOLDER_LOOPS` and `handleAddLoop` to use `fxChain`; add `selectedFxId: string | null` useState; replace `handleFxChange` with `handleAddFx`, `handleRemoveFx`, `handleSetFxKey`, `handleSetFxParam`; add `handleSelectFx`; reset `selectedFxId` when selected loop changes; remove `reverb_mix` from `PARAM_DEFAULTS` (mix now lives in `FxChainEntry.params`); update props to `DetailPanel` and `ParamsBar`
+- [x] 3. **`DetailPanel.tsx`** — replace `onFxChange` with `onAddFx`, `onRemoveFx`, `onSetFxKey`, `onSelectFx` + `fxChain`/`selectedFxId` props; replace FX `<select>` with pill list + `+` add button with dropdown; `×` removes entry; clicking pill calls `onSelectFx`
+- [x] 4. **`ParamsBar.tsx`** — replace `fx: string` with `fxChain`, `selectedFxId`, `onFxParamChange`, `onSelectFx` props; FX PARAMS reads from `selectedFxEntry.params`; MIXER mix reads from `selectedFxEntry.params.mix`; add `valueSource`/`onChange` overrides to `renderParam` so FX params route to `onFxParamChange`
+- [x] 5. **`codeGen.ts`** — replace single `wrapWithFx` call with loop over `fxChain` (index 0 = outermost); read mix from `fxEntry.params.mix`; remove `reverb_mix` from `PARAM_DEFAULTS`
+- [x] 6. **`usePlayback.ts`** — update sample player to use `loop.fxChain[0]` instead of `loop.fx`; adapt `getOrCreateSamplePlayer` signature
+- [x] 7. **`studio.css`** — add `.studio-fx-chain`, `.studio-fx-pill`, `.studio-fx-pill--active`, `.studio-fx-add-btn`, `.studio-fx-dropdown` styles
+
+---
+
+## Task 31 — Update README.md
+
+### Plan
+
+- [x] 1. Add Task 31 entry to `tasks/todo.md`
+- [x] 2. Rewrite `README.md` to reflect current Pi Studio state: Browser + Studio sections, updated architecture tree, keyboard shortcuts, SuperSonic GPL-3.0 credit, correct live site URL
+
+### Review
+
+**Files modified:**
+
+- `README.md` — complete rewrite. Renamed project from "Sonic Pi Sample Browser" to "Pi Studio". Added Studio section with all key features (piano roll, FX chain, sync modes, undo/redo, export). Updated architecture tree to cover `src/studio/` and all new components/hooks added since the original README. Updated audio section to describe SuperSonic's role. Added SuperSonic GPL-3.0 attribution. Live site URL corrected. No source files touched.

@@ -2,6 +2,8 @@ export type LoopType = 'synth' | 'sample'
 
 export type SyncMode = 'auto' | 'sync_to' | 'free'
 
+export type RrandRange = [number, number]
+
 export type FxChainEntry = {
   id: string
   fxKey: string                    // e.g. "reverb"
@@ -14,7 +16,8 @@ export type StudioNote = {
   duration: number   // in steps
   note: number       // MIDI note number
   velocity: number   // 0–1
-  params: Record<string, number>  // per-note param overrides; empty = inherit from loop
+  params: Record<string, number>       // per-note param overrides; empty = inherit from loop
+  rrandParams: Record<string, RrandRange> // per-note rrand overrides; key → [min, max]
 }
 
 export type StudioLoop = {
@@ -29,7 +32,10 @@ export type StudioLoop = {
   notes: StudioNote[]
   muted: boolean
   bars: number           // loop length in bars (default 1)
-  params: Record<string, number> // synth param overrides (only non-default values need to be set)
+  params: Record<string, number>          // synth param overrides
+  rrandParams: Record<string, RrandRange> // loop-level rrand; key → [min, max]
+  stepParams: Record<number, Record<string, number>>           // sample: per-step param overrides
+  stepRrandParams: Record<number, Record<string, RrandRange>>  // sample: per-step rrand
   syncMode: SyncMode     // default: 'auto'
   syncTarget: string | null // loop name to sync to (only used when syncMode === 'sync_to')
 }

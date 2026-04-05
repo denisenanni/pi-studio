@@ -805,3 +805,65 @@
 **Files modified:**
 
 - `README.md` — complete rewrite. Renamed project from "Sonic Pi Sample Browser" to "Pi Studio". Added Studio section with all key features (piano roll, FX chain, sync modes, undo/redo, export). Updated architecture tree to cover `src/studio/` and all new components/hooks added since the original README. Updated audio section to describe SuperSonic's role. Added SuperSonic GPL-3.0 attribution. Live site URL corrected. No source files touched.
+
+---
+
+## Task 32 — rrand Params + Sample Loop Per-Step Params
+
+### Plan
+
+**Types (`types.ts`):**
+- [x] 1. Add `export type RrandRange = [number, number]`
+- [x] 2. Add `rrandParams: Record<string, RrandRange>` to `StudioNote`
+- [x] 3. Add `rrandParams: Record<string, RrandRange>` to `StudioLoop`
+- [x] 4. Add `stepParams: Record<number, Record<string, number>>` to `StudioLoop`
+- [x] 5. Add `stepRrandParams: Record<number, Record<string, RrandRange>>` to `StudioLoop`
+
+**StudioPage (`StudioPage.tsx`):**
+- [x] 6. Add `rrandParams: {}` to `PLACEHOLDER_NOTE` and wherever `StudioNote` is created
+- [x] 7. Add `rrandParams: {}`, `stepParams: {}`, `stepRrandParams: {}` to `PLACEHOLDER_LOOPS` and `handleAddLoop`
+- [x] 8. Add handlers: `handleSetNoteRrand`, `handleSetLoopRrand`, `handleSetStepParam`, `handleSetStepRrand`
+- [x] 9. Pass new props down to `DetailPanel`
+
+**ParamsBar (`ParamsBar.tsx`):**
+- [x] 10. Add `rrandParams`, `onRrandChange` props
+- [x] 11. Add `~` toggle button next to value display on each loop param
+- [x] 12. When rrand active: show two sliders (MIN / MAX) instead of one; value display shows `~min–max`
+- [x] 13. Add tooltips: `~` → "Randomise on each note (rrand)" / "Disable randomisation"
+
+**DetailPanel (`DetailPanel.tsx`):**
+- [x] 14. Add step param props to interface; wire rrand to StudioPage→ParamsBar directly (ParamsBar rendered in StudioPage)
+- [x] 15. Update `SampleLoopView`: add `selectedStep` derived state (loopId-scoped to avoid effect)
+- [x] 16. Step click logic: inactive → activate+select; active+unselected → select; active+selected → deactivate
+- [x] 17. Add dot indicator on step buttons that have non-default `stepParams` or `stepRrandParams`
+- [x] 18. Below step grid: render param panel for `selectedStep` (Amp, Rate, LPF, HPF, Pan) with `~` toggles
+- [x] 19. Tooltips on `~` toggle buttons
+
+**Code generation (`codeGen.ts`):**
+- [x] 20. `buildSynthBody`: emit `rrand(min, max)` for each param with active rrand; fixed value otherwise
+- [x] 21. `buildSampleBody`: emit per-step args (amp, rate, lpf, hpf, pan); use `rrand()` where active
+
+**Playback (`usePlayback.ts`):**
+- [x] 22. Resolve rrand at fire time via `Math.random()` for each synth note param
+- [x] 23. Sample loops: pan already wired; lpf/hpf/rate code-gen only (no runtime change needed)
+
+**CSS (`studio.css`):**
+- [x] 24. Add `.studio-param-rrand-toggle`, `.studio-param-rrand-range`, `.studio-step-dot`, `.studio-sample-step-btn.selected`, `.studio-step-params` styles
+
+### Review — Task 32
+
+**`src/studio/types.ts`** — Added `RrandRange = [number, number]` tuple type; `rrandParams` on `StudioNote`; `rrandParams`, `stepParams`, `stepRrandParams` on `StudioLoop`.
+
+**`src/studio/StudioPage.tsx`** — Added 5 new state handlers (`handleSetNoteRrand`, `handleSetLoopRrand`, `handleSetStepParam`, `handleClearStepParam`, `handleSetStepRrand`); computed `paramsBarRrandParams` (note.rrandParams ?? loop.rrandParams) and `handleParamsBarRrandChange` which delegates to the appropriate handler; wired rrand props to `ParamsBar` and step param handlers to `DetailPanel`.
+
+**`src/studio/ParamsBar.tsx`** — Added `rrandParams: Record<string, RrandRange>` and `onRrandChange` props; `renderLoopParam` shows a `~` toggle button in the header; when rrand is active, value display shows `~min–max` and two range sliders (MIN/MAX) replace the single slider; enabling rrand sets default range `[value - 20%, value]` clamped to param bounds; tooltips on the toggle button.
+
+**`src/studio/DetailPanel.tsx`** — Added `onSetStepParam`, `onClearStepParam`, `onSetStepRrand` to `DetailPanelProps`; redesigned `SampleLoopView`: 3-state step click (inactive→activate+select / active+unselected→select / active+selected→deactivate); dot indicator on steps with non-default `stepParams`/`stepRrandParams`; step param panel below the grid (Amp/Rate/LPF/HPF/Pan) with rrand toggles; selected step stored as `{ loopId, step }` so it auto-clears when loop changes without a setState-in-effect anti-pattern.
+
+**`src/studio/codeGen.ts`** — Added `resolveParam` (synth note params → `rrand(min,max)` or fixed) and `resolveStepParam` (sample step params → `rrand(min,max)` or fixed or null=omit); `buildSynthBody` uses `resolveParam` for all params; `buildSampleBody` emits per-step args (amp/rate/lpf/hpf/pan) using `resolveStepParam`.
+
+**`src/studio/usePlayback.ts`** — Synth transport callback: `resolveRrand` helper resolves rrand at fire time via `Math.random()`, selecting a value in [min, max] range; each note param (amp, cutoff, attack, decay, sustain, pan) resolved per-fire.
+
+**`src/studio/studio.css`** — Added `.studio-param-rrand-toggle` (inactive=grey, active=accent), `.studio-param-rrand-range`/`.studio-param-rrand-row`/`.studio-param-rrand-label` for dual-slider layout, `.studio-step-dot` absolute indicator, `.studio-sample-step-btn.selected` outline highlight, `.studio-step-params` panel styles.
+
+**Build:** `yarn build` passes with zero TypeScript errors. No `any`.

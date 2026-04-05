@@ -2,7 +2,7 @@ import { useState } from "react";
 import { SYNTHS } from "../data/synths";
 import { SYNTH_FX_LIST } from "../data/synthFx";
 import { Tooltip } from "./Tooltip";
-import type { FxChainEntry } from "./types";
+import type { FxChainEntry, RrandRange } from "./types";
 
 interface ParamDef {
   key: string;
@@ -56,12 +56,15 @@ interface ParamsBarProps {
   onFxParamChange: (fxId: string, key: string, value: number) => void;
   onSelectFx: (fxId: string | null) => void;
   onParamReset: (key: string) => void;
+  rrandParams: Record<string, RrandRange>;
+  onRrandChange: (key: string, range: RrandRange | null) => void;
 }
 
 export function ParamsBar({
   params, defaults, mode, synth,
   fxChain, selectedFxId,
   onParamChange, onFxParamChange, onParamReset,
+  rrandParams, onRrandChange,
 }: ParamsBarProps) {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editRaw, setEditRaw] = useState<string>("");
@@ -135,15 +138,28 @@ export function ParamsBar({
     const value = getLoopParamValue(param.key);
     const isOverridden = mode === 'note' && defaults[param.key] !== undefined && value !== defaults[param.key];
     const editKey = param.key;
+    const isRrand = param.key in rrandParams;
+    const rrandRange = rrandParams[param.key];
 
     const classes = ['studio-param', isOverridden ? 'studio-param--overridden' : '', disabled ? 'studio-param--disabled' : '']
       .filter(Boolean).join(' ');
+
+    const handleRrandToggle = () => {
+      if (isRrand) {
+        onRrandChange(param.key, null);
+      } else {
+        // Default range: [min, current value] clamped
+        const lo = Math.max(param.min, value - (param.max - param.min) * 0.2);
+        const hi = Math.min(param.max, value);
+        onRrandChange(param.key, [lo, hi]);
+      }
+    };
 
     const inner = (
       <div className={classes}>
         <div className="studio-param-header">
           <span className="studio-param-label">{param.label}</span>
-          {editingKey === editKey ? (
+          {!isRrand && editingKey === editKey ? (
             <input name="studio-param" className="studio-param-value-input" type="number"
               min={param.min} max={param.max} step={param.step} value={editRaw} autoFocus
               onChange={(e) => setEditRaw(e.target.value)}
@@ -156,16 +172,44 @@ export function ParamsBar({
             />
           ) : (
             <span className="studio-param-value"
-              onDoubleClick={() => mode === 'note' ? onParamReset(param.key) : startEditLoop(param)}
-              title={mode === 'note' ? 'Double-click to reset to loop default' : 'Double-click to edit'}
-            >{formatValue(value, param.step)}</span>
+              onDoubleClick={() => !isRrand && (mode === 'note' ? onParamReset(param.key) : startEditLoop(param))}
+              title={isRrand ? `~${formatValue(rrandRange[0], param.step)}–${formatValue(rrandRange[1], param.step)}` : mode === 'note' ? 'Double-click to reset to loop default' : 'Double-click to edit'}
+            >{isRrand ? `~${formatValue(rrandRange[0], param.step)}–${formatValue(rrandRange[1], param.step)}` : formatValue(value, param.step)}</span>
           )}
+          <Tooltip text={isRrand ? 'Disable randomisation' : 'Randomise on each note (rrand)'}>
+            <button
+              className={`studio-param-rrand-toggle${isRrand ? ' active' : ''}`}
+              onClick={handleRrandToggle}
+              aria-label="Toggle rrand"
+            >~</button>
+          </Tooltip>
         </div>
-        <input className="studio-param-slider" type="range"
-          min={param.min} max={param.max} step={param.step} value={value}
-          onChange={(e) => onParamChange(param.key, parseFloat(e.target.value))}
-          aria-label={param.label}
-        />
+        {isRrand ? (
+          <div className="studio-param-rrand-range">
+            <div className="studio-param-rrand-row">
+              <span className="studio-param-rrand-label">MIN</span>
+              <input className="studio-param-slider" type="range"
+                min={param.min} max={rrandRange[1]} step={param.step} value={rrandRange[0]}
+                onChange={(e) => onRrandChange(param.key, [parseFloat(e.target.value), rrandRange[1]])}
+                aria-label={`${param.label} min`}
+              />
+            </div>
+            <div className="studio-param-rrand-row">
+              <span className="studio-param-rrand-label">MAX</span>
+              <input className="studio-param-slider" type="range"
+                min={rrandRange[0]} max={param.max} step={param.step} value={rrandRange[1]}
+                onChange={(e) => onRrandChange(param.key, [rrandRange[0], parseFloat(e.target.value)])}
+                aria-label={`${param.label} max`}
+              />
+            </div>
+          </div>
+        ) : (
+          <input className="studio-param-slider" type="range"
+            min={param.min} max={param.max} step={param.step} value={value}
+            onChange={(e) => onParamChange(param.key, parseFloat(e.target.value))}
+            aria-label={param.label}
+          />
+        )}
       </div>
     );
 

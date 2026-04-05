@@ -271,16 +271,25 @@ export function usePlayback(state: StudioState): PlaybackControls {
 
           for (const note of notesOnStep) {
             const synthName = `sonic-pi-${loop.synth}`
-            // Fire and forget — synthdef should already be loaded from pre-load above.
-            // If not loaded yet (e.g. loop added after play), skip gracefully.
             const nodeId = getNextNodeId()
             const releaseSec = note.duration * stepDur
-            const effectiveAmp    = note.params['amp']    ?? loop.params['amp']    ?? 1.0
-            const effectiveCutoff = note.params['cutoff'] ?? loop.params['cutoff'] ?? 80
-            const effectiveAttack = note.params['attack'] ?? loop.params['attack'] ?? 0.1
-            const effectiveDecay   = note.params['decay']   ?? loop.params['decay']   ?? 0
-            const effectiveSustain = note.params['sustain'] ?? loop.params['sustain'] ?? 1
-            const effectivePan    = note.params['pan']    ?? loop.params['pan']    ?? 0
+
+            // Resolve each param: rrand([min,max]) → random value at fire time
+            function resolveRrand(key: string, fallback: number): number {
+              const noteRange = note.rrandParams[key]
+              if (noteRange) return noteRange[0] + Math.random() * (noteRange[1] - noteRange[0])
+              const loopRange = loop.rrandParams[key]
+              if (loopRange) return loopRange[0] + Math.random() * (loopRange[1] - loopRange[0])
+              return note.params[key] ?? loop.params[key] ?? fallback
+            }
+
+            const effectiveAmp     = resolveRrand('amp',     1.0)
+            const effectiveCutoff  = resolveRrand('cutoff',  80)
+            const effectiveAttack  = resolveRrand('attack',  0.1)
+            const effectiveDecay   = resolveRrand('decay',   0)
+            const effectiveSustain = resolveRrand('sustain', 1)
+            const effectivePan     = resolveRrand('pan',     0)
+
             sonic.send(
               '/s_new', synthName, nodeId, 0, 0,
               'note', note.note,

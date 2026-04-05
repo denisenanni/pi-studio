@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useMemo, useEffect, memo } from "react";
 import { Tooltip } from "./Tooltip";
-import type { StudioLoop, StudioNote, SyncMode, FxChainEntry } from "./types";
+import type { StudioLoop, StudioNote, SyncMode, FxChainEntry, RrandRange } from "./types";
 import { ensureToneLoaded, getTone } from "./usePlayback";
 import { SCALES } from "../data/scales";
 import { SYNTHS } from "../data/synths";
@@ -171,6 +171,9 @@ interface DetailPanelProps {
     syncMode: SyncMode,
     syncTarget: string | null,
   ) => void;
+  onSetStepParam: (loopId: string, step: number, key: string, value: number) => void;
+  onClearStepParam: (loopId: string, step: number, key: string) => void;
+  onSetStepRrand: (loopId: string, step: number, key: string, range: RrandRange | null) => void;
 }
 
 // ── DetailPanel ──────────────────────────────────────────────────────────────
@@ -201,6 +204,9 @@ export function DetailPanel({
   onSetVelocity,
   onSelectNote,
   onSetSyncMode,
+  onSetStepParam,
+  onClearStepParam,
+  onSetStepRrand,
 }: DetailPanelProps) {
   const [fxDropdownOpen, setFxDropdownOpen] = useState(false);
   const fxDropdownRef = useRef<HTMLDivElement>(null);
@@ -345,6 +351,7 @@ export function DetailPanel({
         note: midi,
         velocity: 0.8,
         params: {},
+        rrandParams: {},
       };
       onAddNote(loop.id, note);
       onSelectNote(note.id);
@@ -776,6 +783,9 @@ export function DetailPanel({
           isPlaying={isPlaying}
           onToggleStep={onToggleStep}
           onSetLoopSample={onSetLoopSample}
+          onSetStepParam={onSetStepParam}
+          onClearStepParam={onClearStepParam}
+          onSetStepRrand={onSetStepRrand}
         />
       )}
 
@@ -882,12 +892,36 @@ export function DetailPanel({
 
 // ── SampleLoopView ───────────────────────────────────────────────────────────
 
+interface StepParamDef {
+  key: string;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  default: number;
+}
+
+const STEP_PARAM_DEFS: StepParamDef[] = [
+  { key: 'amp',  label: 'AMP',  min: 0,   max: 2,     step: 0.01, default: 1 },
+  { key: 'rate', label: 'RATE', min: 0.1, max: 4,     step: 0.01, default: 1 },
+  { key: 'lpf',  label: 'LPF',  min: 20,  max: 20000, step: 1,    default: 20000 },
+  { key: 'hpf',  label: 'HPF',  min: 20,  max: 20000, step: 1,    default: 20 },
+  { key: 'pan',  label: 'PAN',  min: -1,  max: 1,     step: 0.01, default: 0 },
+];
+
+function formatStepValue(v: number, stepDef: StepParamDef): string {
+  return stepDef.step < 1 ? v.toFixed(2) : String(Math.round(v));
+}
+
 interface SampleLoopViewProps {
   loop: StudioLoop;
   currentStep: number;
   isPlaying: boolean;
   onToggleStep: (loopId: string, step: number) => void;
   onSetLoopSample: (loopId: string, sample: string) => void;
+  onSetStepParam: (loopId: string, step: number, key: string, value: number) => void;
+  onClearStepParam: (loopId: string, step: number, key: string) => void;
+  onSetStepRrand: (loopId: string, step: number, key: string, range: RrandRange | null) => void;
 }
 
 function SampleLoopView({
@@ -896,11 +930,17 @@ function SampleLoopView({
   isPlaying,
   onToggleStep,
   onSetLoopSample,
+  onSetStepParam,
+  onClearStepParam,
+  onSetStepRrand,
 }: SampleLoopViewProps) {
   const playerRef = useRef<{ stop: () => void; dispose: () => void } | null>(
     null,
   );
   const [previewing, setPreviewing] = useState(false);
+  // Track selected step per loop: { loopId, step } so it auto-clears when loop changes
+  const [selectedStepState, setSelectedStepState] = useState<{ loopId: string; step: number } | null>(null);
+  const selectedStep = selectedStepState?.loopId === loop.id ? selectedStepState.step : null;
 
   useEffect(
     () => () => {
@@ -911,7 +951,6 @@ function SampleLoopView({
   );
 
   // Stop old preview when sample changes
-  // onstop callback (set in handlePreview) calls setPreviewing(false) when the player stops.
   useEffect(() => {
     if (playerRef.current) {
       playerRef.current.stop();
@@ -921,12 +960,8 @@ function SampleLoopView({
   }, [loop.sample]);
 
   const handlePreview = useCallback(async () => {
-    // Load Tone if not already loaded (no-op after usePlayback.play() has run).
     await ensureToneLoaded();
     const Tone = getTone()!;
-    // Tone.start() must be called before any further awaits to stay within the
-    // user-gesture activation window on mobile browsers (the window closes after
-    // the first microtask boundary that crosses an I/O operation).
     if (Tone.getContext().state !== "running") await Tone.start();
     if (playerRef.current) {
       playerRef.current.stop();
@@ -944,8 +979,99 @@ function SampleLoopView({
     setPreviewing(true);
   }, [loop.sample]);
 
+  const handleStepClick = useCallback((i: number) => {
+    const active = loop.activeSteps[i];
+    if (!active) {
+      // inactive → activate + select
+      onToggleStep(loop.id, i);
+      setSelectedStepState({ loopId: loop.id, step: i });
+    } else if (selectedStep !== i) {
+      // active but not selected → select only
+      setSelectedStepState({ loopId: loop.id, step: i });
+    } else {
+      // active + selected → deactivate + clear selection
+      onToggleStep(loop.id, i);
+      setSelectedStepState(null);
+    }
+  }, [loop.id, loop.activeSteps, selectedStep, onToggleStep]);
+
   const steps = loop.steps;
   const gridWidth = steps * SAMPLE_BTN_SIZE;
+
+  // ── Step param panel ────────────────────────────────────
+  const stepParamsEntry = selectedStep !== null ? (loop.stepParams[selectedStep] ?? {}) : {};
+  const stepRrandEntry  = selectedStep !== null ? (loop.stepRrandParams[selectedStep] ?? {}) : {};
+
+  function renderStepParam(def: StepParamDef) {
+    if (selectedStep === null) return null;
+    const isRrand = def.key in stepRrandEntry;
+    const rrandRange = stepRrandEntry[def.key];
+    const value = stepParamsEntry[def.key] ?? def.default;
+    const isOverride = def.key in stepParamsEntry || isRrand;
+
+    const handleRrandToggle = () => {
+      if (isRrand) {
+        onSetStepRrand(loop.id, selectedStep, def.key, null);
+      } else {
+        const lo = Math.max(def.min, value - (def.max - def.min) * 0.2);
+        onSetStepRrand(loop.id, selectedStep, def.key, [lo, value]);
+      }
+    };
+
+    const handleChange = (v: number) => {
+      if (v === def.default) {
+        onClearStepParam(loop.id, selectedStep, def.key);
+      } else {
+        onSetStepParam(loop.id, selectedStep, def.key, v);
+      }
+    };
+
+    return (
+      <div key={def.key} className={`studio-param${isOverride ? ' studio-param--overridden' : ''}`}>
+        <div className="studio-param-header">
+          <span className="studio-param-label">{def.label}</span>
+          <span className="studio-param-value" title={isRrand ? `~${formatStepValue(rrandRange[0], def)}–${formatStepValue(rrandRange[1], def)}` : undefined}>
+            {isRrand
+              ? `~${formatStepValue(rrandRange[0], def)}–${formatStepValue(rrandRange[1], def)}`
+              : formatStepValue(value, def)}
+          </span>
+          <Tooltip text={isRrand ? 'Disable randomisation' : 'Randomise (rrand)'}>
+            <button
+              className={`studio-param-rrand-toggle${isRrand ? ' active' : ''}`}
+              onClick={handleRrandToggle}
+              aria-label="Toggle rrand"
+            >~</button>
+          </Tooltip>
+        </div>
+        {isRrand ? (
+          <div className="studio-param-rrand-range">
+            <div className="studio-param-rrand-row">
+              <span className="studio-param-rrand-label">MIN</span>
+              <input className="studio-param-slider" type="range"
+                min={def.min} max={rrandRange[1]} step={def.step} value={rrandRange[0]}
+                onChange={(e) => onSetStepRrand(loop.id, selectedStep, def.key, [parseFloat(e.target.value), rrandRange[1]])}
+                aria-label={`${def.label} min`}
+              />
+            </div>
+            <div className="studio-param-rrand-row">
+              <span className="studio-param-rrand-label">MAX</span>
+              <input className="studio-param-slider" type="range"
+                min={rrandRange[0]} max={def.max} step={def.step} value={rrandRange[1]}
+                onChange={(e) => onSetStepRrand(loop.id, selectedStep, def.key, [rrandRange[0], parseFloat(e.target.value)])}
+                aria-label={`${def.label} max`}
+              />
+            </div>
+          </div>
+        ) : (
+          <input className="studio-param-slider" type="range"
+            min={def.min} max={def.max} step={def.step} value={value}
+            onChange={(e) => handleChange(parseFloat(e.target.value))}
+            aria-label={def.label}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="studio-sample-view">
@@ -953,13 +1079,24 @@ function SampleLoopView({
         {Array.from({ length: steps }, (_, i) => {
           const active = loop.activeSteps[i];
           const playing = isPlaying && currentStep % steps === i;
+          const isSelected = selectedStep === i;
+          const hasParams =
+            Object.keys(loop.stepParams[i] ?? {}).length > 0 ||
+            Object.keys(loop.stepRrandParams[i] ?? {}).length > 0;
           return (
             <button
               key={i}
-              className={`studio-sample-step-btn${active ? " active" : ""}${playing ? " playing" : ""}`}
-              onClick={() => onToggleStep(loop.id, i)}
+              className={[
+                'studio-sample-step-btn',
+                active ? 'active' : '',
+                playing ? 'playing' : '',
+                isSelected ? 'selected' : '',
+              ].filter(Boolean).join(' ')}
+              onClick={() => handleStepClick(i)}
               title={`Step ${i + 1}`}
-            />
+            >
+              {hasParams && <span className="studio-step-dot" />}
+            </button>
           );
         })}
       </div>
@@ -982,14 +1119,22 @@ function SampleLoopView({
         </select>
         <button
           className={`studio-sample-preview-btn${previewing ? " active" : ""}`}
-          onClick={() => {
-            void handlePreview();
-          }}
+          onClick={() => { void handlePreview(); }}
           title={previewing ? "Stop preview" : "Preview sample"}
         >
           {previewing ? "■" : "▶"}
         </button>
       </div>
+
+      {/* Step param panel */}
+      {selectedStep !== null && (
+        <div className="studio-step-params">
+          <span className="studio-step-params-title">STEP {selectedStep + 1} PARAMS</span>
+          <div className="studio-step-params-grid">
+            {STEP_PARAM_DEFS.map((def) => renderStepParam(def))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

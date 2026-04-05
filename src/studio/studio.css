@@ -1379,6 +1379,115 @@
   flex-shrink: 0;
 }
 
+/* ── rrand toggle button ─────────────────────────────────── */
+
+.studio-param-rrand-toggle {
+  background: none;
+  border: none;
+  color: #444;
+  font-size: 9px;
+  cursor: pointer;
+  padding: 2px 3px;
+  line-height: 1;
+  flex-shrink: 0;
+  font-family: inherit;
+  transition: color 0.1s;
+  align-self: center;
+}
+
+.studio-param-rrand-toggle:hover {
+  color: #888;
+}
+
+.studio-param-rrand-toggle.active {
+  color: var(--accent, #7cfc7c);
+}
+
+.studio-param-rrand-toggle.active:hover {
+  color: var(--accent, #7cfc7c);
+}
+
+/* ── rrand dual-slider range ─────────────────────────────── */
+
+.studio-param-rrand-range {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+}
+
+.studio-param-rrand-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.studio-param-rrand-label {
+  font-size: 8px;
+  color: #444;
+  letter-spacing: 0.5px;
+  width: 18px;
+  flex-shrink: 0;
+}
+
+/* ── step dot indicator (sample steps with non-default params) */
+
+.studio-sample-step-btn {
+  position: relative;
+}
+
+.studio-step-dot {
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  pointer-events: none;
+}
+
+/* ── selected step highlight ─────────────────────────────── */
+
+.studio-sample-step-btn.selected {
+  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline-offset: -2px;
+}
+
+/* ── step param panel (below sample step grid) ───────────── */
+
+.studio-step-params {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #222;
+  background: #0d0d0d;
+}
+
+.studio-step-params-title {
+  font-size: 9px;
+  color: #555;
+  letter-spacing: 1px;
+}
+
+.studio-step-params-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px 16px;
+  max-width: 540px;
+}
+
+/* Keep label+value+~ clustered together within step params (columns can be wide) */
+.studio-step-params .studio-param-header {
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.studio-step-params .studio-param-label {
+  min-width: 28px;
+}
+
 /* ── Code Output Panel ───────────────────────────────────── */
 
 .studio-code-panel {

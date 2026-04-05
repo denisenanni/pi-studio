@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import './studio.css'
-import type { StudioState, StudioLoop, StudioNote, StudioSnapshot, LoopType, SyncMode, FxChainEntry } from './types'
+import type { StudioState, StudioLoop, StudioNote, StudioSnapshot, LoopType, SyncMode, FxChainEntry, RrandRange } from './types'
 
 // Default param values — used to merge with per-loop params for ParamsBar display
 const PARAM_DEFAULTS: Record<string, number> = {
@@ -84,7 +84,7 @@ function makeSteps(total: number, active: number[]): boolean[] {
 }
 
 const PLACEHOLDER_NOTE = (id: string, step: number, midiNote: number, vel: number): StudioNote => ({
-  id, step, duration: 1, note: midiNote, velocity: vel, params: {},
+  id, step, duration: 1, note: midiNote, velocity: vel, params: {}, rrandParams: {},
 })
 
 const PLACEHOLDER_LOOPS: StudioLoop[] = [
@@ -106,6 +106,9 @@ const PLACEHOLDER_LOOPS: StudioLoop[] = [
     muted: false,
     bars: 1,
     params: {},
+    rrandParams: {},
+    stepParams: {},
+    stepRrandParams: {},
     syncMode: 'auto',
     syncTarget: null,
   },
@@ -122,6 +125,9 @@ const PLACEHOLDER_LOOPS: StudioLoop[] = [
     muted: false,
     bars: 1,
     params: {},
+    rrandParams: {},
+    stepParams: {},
+    stepRrandParams: {},
     syncMode: 'auto',
     syncTarget: null,
   },
@@ -143,6 +149,9 @@ const PLACEHOLDER_LOOPS: StudioLoop[] = [
     muted: false,
     bars: 1,
     params: {},
+    rrandParams: {},
+    stepParams: {},
+    stepRrandParams: {},
     syncMode: 'auto',
     syncTarget: null,
   },
@@ -413,6 +422,9 @@ export function StudioPage() {
         muted: false,
         bars: 1,
         params: {},
+        rrandParams: {},
+        stepParams: {},
+        stepRrandParams: {},
         syncMode: 'auto',
         syncTarget: null,
       }
@@ -531,6 +543,75 @@ export function StudioPage() {
     setState((s) => ({
       ...pushUndo(s),
       loops: s.loops.map((l) => l.id === loopId ? { ...l, syncMode, syncTarget } : l),
+    }))
+  }, [pushUndo])
+
+  // ── rrand handlers ────────────────────────────────────────
+
+  const handleSetNoteRrand = useCallback((loopId: string, noteId: string, key: string, range: RrandRange | null) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) => l.id !== loopId ? l : {
+        ...l,
+        notes: l.notes.map((n) => {
+          if (n.id !== noteId) return n
+          const next = { ...n.rrandParams }
+          if (range === null) delete next[key]
+          else next[key] = range
+          return { ...n, rrandParams: next }
+        }),
+      }),
+    }))
+  }, [pushUndo])
+
+  const handleSetLoopRrand = useCallback((loopId: string, key: string, range: RrandRange | null) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) => {
+        if (l.id !== loopId) return l
+        const next = { ...l.rrandParams }
+        if (range === null) delete next[key]
+        else next[key] = range
+        return { ...l, rrandParams: next }
+      }),
+    }))
+  }, [pushUndo])
+
+  // ── Sample step param handlers ─────────────────────────────
+
+  const handleSetStepParam = useCallback((loopId: string, step: number, key: string, value: number) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) => {
+        if (l.id !== loopId) return l
+        const stepEntry = { ...(l.stepParams[step] ?? {}), [key]: value }
+        return { ...l, stepParams: { ...l.stepParams, [step]: stepEntry } }
+      }),
+    }))
+  }, [pushUndo])
+
+  const handleClearStepParam = useCallback((loopId: string, step: number, key: string) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) => {
+        if (l.id !== loopId) return l
+        const stepEntry = { ...(l.stepParams[step] ?? {}) }
+        delete stepEntry[key]
+        return { ...l, stepParams: { ...l.stepParams, [step]: stepEntry } }
+      }),
+    }))
+  }, [pushUndo])
+
+  const handleSetStepRrand = useCallback((loopId: string, step: number, key: string, range: RrandRange | null) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) => {
+        if (l.id !== loopId) return l
+        const stepEntry = { ...(l.stepRrandParams[step] ?? {}) }
+        if (range === null) delete stepEntry[key]
+        else stepEntry[key] = range
+        return { ...l, stepRrandParams: { ...l.stepRrandParams, [step]: stepEntry } }
+      }),
     }))
   }, [pushUndo])
 
@@ -670,6 +751,19 @@ export function StudioPage() {
     : loopParams
   const paramsBarMode: 'note' | 'loop' = selectedNote ? 'note' : 'loop'
 
+  // rrand params for ParamsBar
+  const paramsBarRrandParams: Record<string, RrandRange> = selectedNote
+    ? selectedNote.rrandParams
+    : (selectedLoop?.rrandParams ?? {})
+
+  const handleParamsBarRrandChange = useCallback((key: string, range: RrandRange | null) => {
+    if (selectedNote && selectedLoop) {
+      handleSetNoteRrand(selectedLoop.id, selectedNote.id, key, range)
+    } else if (selectedLoop) {
+      handleSetLoopRrand(selectedLoop.id, key, range)
+    }
+  }, [selectedNote, selectedLoop, handleSetNoteRrand, handleSetLoopRrand])
+
   return (
     <div className="studio-page">
       <Transport
@@ -747,6 +841,9 @@ export function StudioPage() {
             onSetVelocity={handleSetVelocity}
             onSelectNote={handleSelectNote}
             onSetSyncMode={handleSetSyncMode}
+            onSetStepParam={handleSetStepParam}
+            onClearStepParam={handleClearStepParam}
+            onSetStepRrand={handleSetStepRrand}
           />
 
           <ParamsBar
@@ -768,6 +865,8 @@ export function StudioPage() {
             }}
             onSelectFx={setSelectedFxId}
             onParamReset={handleResetNoteParam}
+            rrandParams={paramsBarRrandParams}
+            onRrandChange={handleParamsBarRrandChange}
           />
 
           <CodeOutput

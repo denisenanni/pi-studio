@@ -89,8 +89,9 @@ export function ParamsBar({
   const fxParamsTitle = selectedFxEntry ? `FX PARAMS — ${selectedFxEntry.fxKey}` : 'FX PARAMS';
 
   // MIX param for MIXER box (per-FX mix stored in fxEntry.params.mix)
-  const mixParam: ParamDef = { key: "mix", label: "FX MIX", min: 0, max: 1, step: 0.01 };
-  const ampParam: ParamDef = { key: "amp", label: "AMP",    min: 0, max: 2, step: 0.01 };
+  const mixParam: ParamDef = { key: "mix", label: "FX MIX", min: 0,  max: 1, step: 0.01 };
+  const ampParam: ParamDef = { key: "amp", label: "AMP",    min: 0,  max: 2, step: 0.01 };
+  const panParam: ParamDef = { key: "pan", label: "PAN",    min: -1, max: 1, step: 0.01 };
 
   // ── Param value helpers ───────────────────────────────────────
   function getLoopParamValue(key: string): number {
@@ -279,8 +280,9 @@ export function ParamsBar({
       {/* Mixer — always visible */}
       <div className="studio-adsr-box">
         <span className="studio-adsr-title">MIXER</span>
-        <div className="studio-param-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+        <div className="studio-param-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
           {renderLoopParam(ampParam)}
+          {renderLoopParam(panParam)}
           {fxChain.length > 0
             ? renderFxParam(mixParam)
             : renderLoopParam({ ...mixParam }, true, 'No FX selected')}

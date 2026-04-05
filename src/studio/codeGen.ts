@@ -10,6 +10,7 @@ const PARAM_DEFAULTS: Record<string, number> = {
   sustain: 1,
   release: 0.50,
   amp:     1.0,
+  pan:     0,
 }
 
 function getEffectiveParam(note: StudioNote, loop: StudioLoop, key: string): number {
@@ -72,6 +73,7 @@ function buildSynthBody(loop: StudioLoop, timeSignature: [number, number]): stri
     const decay   = getEffectiveParam(note, loop, 'decay')
     const sustain = getEffectiveParam(note, loop, 'sustain')
     const release = getEffectiveParam(note, loop, 'release')
+    const pan     = getEffectiveParam(note, loop, 'pan')
 
     // Build param list — only include values that differ from their defaults
     const synthParams: string[] = [`note: :${noteName}`]
@@ -85,6 +87,7 @@ function buildSynthBody(loop: StudioLoop, timeSignature: [number, number]): stri
     // release: use note duration unless overridden per-note
     const releaseBeats = note.params['release'] !== undefined ? formatBeat(release) : durBeats
     synthParams.push(`release: ${releaseBeats}`)
+    if (pan !== PARAM_DEFAULTS['pan']) synthParams.push(`pan: ${pan}`)
 
     lines.push(`  synth :${loop.synth}, ${synthParams.join(', ')}`)
 
@@ -106,6 +109,9 @@ function buildSampleBody(loop: StudioLoop, timeSignature: [number, number]): str
   const lines: string[] = []
   const stepDur    = stepDuration(loop, timeSignature)
   const totalSteps = loop.steps * loop.bars
+  const pan        = loop.params['pan'] ?? 0
+
+  const sampleArgs = pan !== 0 ? `, pan: ${pan}` : ''
 
   let anyActive    = false
   let pendingSleep = 0
@@ -117,7 +123,7 @@ function buildSampleBody(loop: StudioLoop, timeSignature: [number, number]): str
         lines.push(`  sleep ${formatBeat(pendingSleep)}`)
         pendingSleep = 0
       }
-      lines.push(`  sample :${loop.sample}`)
+      lines.push(`  sample :${loop.sample}${sampleArgs}`)
       pendingSleep = stepDur
     } else {
       pendingSleep += stepDur

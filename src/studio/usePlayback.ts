@@ -58,6 +58,7 @@ type FxNode =
 
 interface SampleEntry {
   player: ToneNS.Player
+  pannerNode: ToneNS.Panner
   fxNode: FxNode | null
   fxKey: string   // the fx value when fxNode was built — used to detect changes
 }
@@ -115,7 +116,7 @@ export function usePlayback(state: StudioState): PlaybackControls {
   // These are only ever called from the Transport callback (post-play) so
   // _tone and _buildEffect are guaranteed non-null.
 
-  function getOrCreateSamplePlayer(loopId: string, sampleName: string, fxKey: string, fxEntryParams: Record<string, number>): ToneNS.Player {
+  function getOrCreateSampleEntry(loopId: string, sampleName: string, fxKey: string, fxEntryParams: Record<string, number>): SampleEntry {
     const Tone = _tone!
     const buildEffect = _buildEffect!
 
@@ -123,41 +124,45 @@ export function usePlayback(state: StudioState): PlaybackControls {
 
     // Reuse if same sample + same fx
     if (existing && existing.fxKey === fxKey) {
-      return existing.player
+      return existing
     }
 
     // Dispose old entry if present
     if (existing) {
       existing.player.stop()
       existing.player.dispose()
+      existing.pannerNode.dispose()
       existing.fxNode?.dispose()
     }
 
     const mix = fxEntryParams['mix'] ?? 0.4
+    const pannerNode = new Tone.Panner(0).toDestination()
 
     let fxNode: FxNode | null = null
     let player: ToneNS.Player
 
     if (fxKey !== 'none') {
       fxNode = buildEffect(fxKey, fxEntryParams, mix)
-      fxNode.toDestination()
+      fxNode.connect(pannerNode)
       player = new Tone.Player({
         url: `${import.meta.env.BASE_URL}samples/${sampleName}.flac`,
       }).connect(fxNode)
     } else {
       player = new Tone.Player({
         url: `${import.meta.env.BASE_URL}samples/${sampleName}.flac`,
-      }).toDestination()
+      }).connect(pannerNode)
     }
 
-    sampleCacheRef.current.set(loopId, { player, fxNode, fxKey })
-    return player
+    const entry: SampleEntry = { player, pannerNode, fxNode, fxKey }
+    sampleCacheRef.current.set(loopId, entry)
+    return entry
   }
 
   function disposeSampleCache() {
     for (const entry of sampleCacheRef.current.values()) {
       try { entry.player.stop() } catch { /* already stopped */ }
       entry.player.dispose()
+      entry.pannerNode.dispose()
       entry.fxNode?.dispose()
     }
     sampleCacheRef.current.clear()
@@ -275,6 +280,7 @@ export function usePlayback(state: StudioState): PlaybackControls {
             const effectiveAttack = note.params['attack'] ?? loop.params['attack'] ?? 0.1
             const effectiveDecay   = note.params['decay']   ?? loop.params['decay']   ?? 0
             const effectiveSustain = note.params['sustain'] ?? loop.params['sustain'] ?? 1
+            const effectivePan    = note.params['pan']    ?? loop.params['pan']    ?? 0
             sonic.send(
               '/s_new', synthName, nodeId, 0, 0,
               'note', note.note,
@@ -284,17 +290,19 @@ export function usePlayback(state: StudioState): PlaybackControls {
               'decay', effectiveDecay,
               'sustain', effectiveSustain,
               'release', releaseSec,
+              'pan', effectivePan,
             )
           }
         } else if (loop.type === 'sample') {
           if (!loop.activeSteps[loopStep]) continue
 
           const firstFx = loop.fxChain[0]
-          const player = getOrCreateSamplePlayer(loop.id, loop.sample, firstFx?.fxKey ?? 'none', firstFx?.params ?? {})
-          if (player.loaded) {
+          const entry = getOrCreateSampleEntry(loop.id, loop.sample, firstFx?.fxKey ?? 'none', firstFx?.params ?? {})
+          entry.pannerNode.pan.value = loop.params['pan'] ?? 0
+          if (entry.player.loaded) {
             try {
-              if (player.state === 'started') player.stop(time)
-              player.start(time)
+              if (entry.player.state === 'started') entry.player.stop(time)
+              entry.player.start(time)
             } catch { /* player may not be loaded yet */ }
           }
         }

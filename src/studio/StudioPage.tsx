@@ -642,7 +642,7 @@ export function StudioPage() {
   // ── Playback engine ────────────────────────────────────
 
   const { play: playbackPlay, stop: playbackStop, isPlaying: pbPlaying,
-          currentStep: pbStep, analyser } = usePlayback(state)
+          isLoading: pbLoading, currentStep: pbStep, analyser } = usePlayback(state)
 
   const handlePlay  = useCallback(() => { void playbackPlay() }, [playbackPlay])
   const handleStop  = useCallback(() => { playbackStop() }, [playbackStop])
@@ -673,6 +673,7 @@ export function StudioPage() {
         timeSignature={state.timeSignature}
         onTimeSignatureChange={handleTimeSigChange}
         isPlaying={pbPlaying}
+        isLoading={pbLoading}
         onPlay={handlePlay}
         onStop={handleStop}
         currentBar={Math.floor(pbStep / (state.loops.find((l) => !l.muted)?.steps ?? 16)) + 1}

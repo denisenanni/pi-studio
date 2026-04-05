@@ -7,6 +7,7 @@ interface TransportProps {
   timeSignature: [number, number]
   onTimeSignatureChange: (ts: [number, number]) => void
   isPlaying: boolean
+  isLoading: boolean
   onPlay: () => void
   onStop: () => void
   currentBar: number
@@ -26,7 +27,7 @@ const MIN_TAPS = 3
 export function Transport({
   bpm, onBpmChange,
   timeSignature, onTimeSignatureChange,
-  isPlaying, onPlay, onStop,
+  isPlaying, isLoading, onPlay, onStop,
   currentBar, currentStep,
   canUndo, canRedo, onUndo, onRedo,
   onExport,
@@ -178,8 +179,12 @@ export function Transport({
       <span className="studio-transport-divider">|</span>
 
       {/* Play / Stop */}
-      <button className="studio-transport-play" onClick={isPlaying ? onStop : onPlay}>
-        {isPlaying ? '■ Stop' : '▶ Play'}
+      <button
+        className="studio-transport-play"
+        onClick={isLoading ? undefined : isPlaying ? onStop : onPlay}
+        disabled={isLoading}
+      >
+        {isLoading ? 'Loading...' : isPlaying ? '■ Stop' : '▶ Play'}
       </button>
 
       {/* Bar counter */}

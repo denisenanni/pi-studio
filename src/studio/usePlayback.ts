@@ -75,12 +75,14 @@ export interface PlaybackControls {
   play: () => Promise<void>
   stop: () => void
   isPlaying: boolean
+  isLoading: boolean
   currentStep: number
   analyser: ToneNS.Analyser | null
 }
 
 export function usePlayback(state: StudioState): PlaybackControls {
   const [isPlaying, setIsPlaying] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
   const [analyser, setAnalyser] = useState<ToneNS.Analyser | null>(null)
 
@@ -194,52 +196,58 @@ export function usePlayback(state: StudioState): PlaybackControls {
   // ── play() ───────────────────────────────────────────
 
   const play = useCallback(async (): Promise<void> => {
-    // Lazy-load Tone.js on first play — must happen before any other Tone calls.
-    // ensureToneLoaded() coalesces concurrent calls onto one promise so there
-    // is no race between multiple play() invocations (e.g. Strict Mode).
-    await ensureToneLoaded()
-    const Tone = _tone!
+    // Show loading indicator if there's meaningful async work ahead.
+    const s0 = stateRef.current
+    const hasSynthLoops = s0.loops.some((l) => !l.muted && l.type === 'synth')
+    const needsWait = _tone === null || (hasSynthLoops && getSonicInstance() === null)
+    if (needsWait) setIsLoading(true)
 
-    // Resume AudioContext inside user gesture — must happen before audio operations
-    if (Tone.getContext().state !== 'running') {
-      await Tone.start()
-    }
-    audioContextStartedRef.current = true
+    try {
+      // Lazy-load Tone.js on first play — must happen before any other Tone calls.
+      // ensureToneLoaded() coalesces concurrent calls onto one promise so there
+      // is no race between multiple play() invocations (e.g. Strict Mode).
+      await ensureToneLoaded()
+      const Tone = _tone!
 
-    // Lazily init SuperSonic
-    initSuperSonic()
+      // Resume AudioContext inside user gesture — must happen before audio operations
+      if (Tone.getContext().state !== 'running') {
+        await Tone.start()
+      }
+      audioContextStartedRef.current = true
 
-    const transport = Tone.getTransport()
+      // Init SuperSonic and await readiness before pre-loading synthdefs.
+      // Only needed if there are synth loops in the current state.
+      const s = stateRef.current
+      const synthLoops = s.loops.filter((l) => !l.muted && l.type === 'synth')
+      if (synthLoops.length > 0) {
+        await initSuperSonic()
+        await Promise.all(synthLoops.map((l) => ensureSynthDef(`sonic-pi-${l.synth}`)))
+      }
 
-    // Ensure clean state
-    transport.stop()
-    transport.cancel()
-    tickRef.current = 0
+      const transport = Tone.getTransport()
 
-    const s = stateRef.current
-    transport.bpm.value = s.bpm
+      // Ensure clean state
+      transport.stop()
+      transport.cancel()
+      tickRef.current = 0
 
-    // Compute a common step duration using the first non-muted loop's steps,
-    // falling back to 16. Each loop's per-step offset is handled inside the callback.
-    const referenceLoop = s.loops.find((l) => !l.muted) ?? s.loops[0]
-    const referenceSteps = referenceLoop?.steps ?? 16
-    const referenceBeatsPerBar = s.timeSignature[0]
-    const referenceBars = referenceLoop?.bars ?? 1
-    const stepDurSec = calcStepDuration(s.bpm, referenceSteps, referenceBeatsPerBar, referenceBars)
+      transport.bpm.value = s.bpm
 
-    // Set up analyser
-    const newAnalyser = new Tone.Analyser('waveform', 256)
-    Tone.getDestination().connect(newAnalyser)
-    analyserRef.current = newAnalyser
-    setAnalyser(newAnalyser)
+      // Compute a common step duration using the first non-muted loop's steps,
+      // falling back to 16. Each loop's per-step offset is handled inside the callback.
+      const referenceLoop = s.loops.find((l) => !l.muted) ?? s.loops[0]
+      const referenceSteps = referenceLoop?.steps ?? 16
+      const referenceBeatsPerBar = s.timeSignature[0]
+      const referenceBars = referenceLoop?.bars ?? 1
+      const stepDurSec = calcStepDuration(s.bpm, referenceSteps, referenceBeatsPerBar, referenceBars)
 
-    // Pre-load synthdefs for all synth loops
-    const synthLoops = s.loops.filter((l) => !l.muted && l.type === 'synth')
-    await Promise.all(
-      synthLoops.map((l) => ensureSynthDef(`sonic-pi-${l.synth}`))
-    )
+      // Set up analyser
+      const newAnalyser = new Tone.Analyser('waveform', 256)
+      Tone.getDestination().connect(newAnalyser)
+      analyserRef.current = newAnalyser
+      setAnalyser(newAnalyser)
 
-    transport.scheduleRepeat((time: number) => {
+      transport.scheduleRepeat((time: number) => {
       const tick = tickRef.current
       const cur = stateRef.current
 
@@ -297,8 +305,13 @@ export function usePlayback(state: StudioState): PlaybackControls {
       setCurrentStep(tick)
     }, stepDurSec)
 
-    transport.start()
-    setIsPlaying(true)
+      transport.start()
+      setIsLoading(false)
+      setIsPlaying(true)
+    } catch (err) {
+      setIsLoading(false)
+      throw err
+    }
   }, [stop])
 
   // ── Cleanup on unmount ────────────────────────────────
@@ -324,6 +337,7 @@ export function usePlayback(state: StudioState): PlaybackControls {
     play,
     stop,
     isPlaying,
+    isLoading,
     currentStep,
     analyser,
   }

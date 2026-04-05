@@ -255,26 +255,30 @@ export function getSonicInstance(): SuperSonicInstance | null {
   return sonicInstance
 }
 
-/** Triggers engine initialisation if not already started or completed. */
-export function initSuperSonic(): void {
-  if (sonicInstance !== null || initPromise !== null) return
+/** Initialises the engine if needed and resolves when it is ready (or has failed). */
+export async function initSuperSonic(): Promise<void> {
+  if (sonicInstance !== null) return
 
-  initPromise = (async () => {
-    try {
-      const mod = await import(/* @vite-ignore */ SUPERSONIC_CDN_URL) as { SuperSonic: SuperSonicConstructor }
-      const { SuperSonic: SuperSonicCtor } = mod
-      const instance = new SuperSonicCtor({
-        baseURL: BASE_URL,
-        coreBaseURL: CORE_BASE_URL,
-        synthdefBaseURL: SYNTHDEF_BASE_URL,
-        sampleBaseURL: SAMPLE_BASE_URL,
-      })
-      await instance.init()
-      sonicInstance = instance
-    } catch {
-      initPromise = null
-    }
-  })()
+  if (initPromise === null) {
+    initPromise = (async () => {
+      try {
+        const mod = await import(/* @vite-ignore */ SUPERSONIC_CDN_URL) as { SuperSonic: SuperSonicConstructor }
+        const { SuperSonic: SuperSonicCtor } = mod
+        const instance = new SuperSonicCtor({
+          baseURL: BASE_URL,
+          coreBaseURL: CORE_BASE_URL,
+          synthdefBaseURL: SYNTHDEF_BASE_URL,
+          sampleBaseURL: SAMPLE_BASE_URL,
+        })
+        await instance.init()
+        sonicInstance = instance
+      } catch {
+        initPromise = null
+      }
+    })()
+  }
+
+  await initPromise
 }
 
 /** Loads a synthdef by name if not already loaded. No-op if engine is not ready. */

@@ -177,16 +177,17 @@ export function DetailPanel({
   // Remove dangling window listeners if component unmounts mid-drag
   useEffect(() => () => { cancelDragRef.current?.() }, [])
 
-  // ── Scroll to C4 on mount ────────────────────────────────
-  // Stable callback (empty deps) so React only calls it when the element
-  // mounts/unmounts — not on every re-render.
-  const handleRollRef = useCallback((el: HTMLDivElement | null) => {
-    scrollRef.current = el
-    if (el) {
-      const c4Row = ROLL_MIDI_TOP - 60
-      el.scrollTop = c4Row * CELL_HEIGHT - el.clientHeight / 2
-    }
-  }, [])
+  // ── Scroll to show note range when loop changes ──────────
+  // Centers the view around the highest note in the loop, or defaults to C5.
+  useEffect(() => {
+    if (!scrollRef.current || !loop) return
+    const loopNotes = loop.notes
+    const centerMidi = loopNotes.length > 0
+      ? Math.max(...loopNotes.map((n) => n.note))
+      : 72 // default to C5
+    const scrollTop = (ROLL_MIDI_TOP - centerMidi - 8) * CELL_HEIGHT
+    scrollRef.current.scrollTop = Math.max(0, scrollTop)
+  }, [loop?.id])
 
   // ── Keyboard shortcuts ────────────────────────────────────
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -603,7 +604,7 @@ export function DetailPanel({
         </div>
 
         {/* Scrollable grid */}
-        <div className="studio-roll-grid-wrapper" ref={handleRollRef}>
+        <div className="studio-roll-grid-wrapper" ref={scrollRef}>
           <div
             className="studio-roll-grid"
             style={{ width: gridWidth, minHeight: ROLL_NOTE_COUNT * CELL_HEIGHT }}

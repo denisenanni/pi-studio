@@ -92,16 +92,16 @@ const PLACEHOLDER_LOOPS: StudioLoop[] = [
     id: 'loop-melody',
     name: 'melody',
     type: 'synth',
-    synth: 'prophet',
+    synth: 'blade',
     sample: '',
     fxChain: [{ id: 'fx-melody-1', fxKey: 'reverb', params: {} }],
-    steps: 16,
-    activeSteps: makeSteps(16, [0, 2, 4, 6, 8, 10, 12, 14]),
+    steps: 8,
+    activeSteps: makeSteps(8, [0, 2, 4, 6]),
     notes: [
-      PLACEHOLDER_NOTE('n1', 0, 72, 0.9),  // C5
-      PLACEHOLDER_NOTE('n2', 2, 67, 0.75), // G4
-      PLACEHOLDER_NOTE('n3', 4, 71, 0.8),  // B4
-      PLACEHOLDER_NOTE('n4', 6, 76, 0.85), // E5
+      PLACEHOLDER_NOTE('n1', 0, 69, 0.9),  // A4
+      PLACEHOLDER_NOTE('n2', 2, 65, 0.75), // F4
+      PLACEHOLDER_NOTE('n3', 4, 60, 0.8),  // C4
+      PLACEHOLDER_NOTE('n4', 6, 64, 0.85), // E4
     ],
     muted: false,
     bars: 1,
@@ -129,12 +129,17 @@ const PLACEHOLDER_LOOPS: StudioLoop[] = [
     id: 'loop-bass',
     name: 'bass',
     type: 'synth',
-    synth: 'tb303',
+    synth: 'saw',
     sample: '',
     fxChain: [],
-    steps: 16,
-    activeSteps: makeSteps(16, [0, 3, 6, 9, 12, 15]),
-    notes: [],
+    steps: 8,
+    activeSteps: makeSteps(8, [0, 2, 4, 6]),
+    notes: [
+      PLACEHOLDER_NOTE('b1', 0, 48, 0.9),  // C3
+      PLACEHOLDER_NOTE('b2', 2, 48, 0.8),  // C3
+      PLACEHOLDER_NOTE('b3', 4, 55, 0.85), // G3
+      PLACEHOLDER_NOTE('b4', 6, 58, 0.8),  // A#3
+    ],
     muted: false,
     bars: 1,
     params: {},

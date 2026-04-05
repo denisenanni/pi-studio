@@ -369,7 +369,7 @@
 .studio-loops-list {
   flex: 1;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: visible;
 }
 
 .studio-loops-list::-webkit-scrollbar {
@@ -418,6 +418,7 @@
   border-bottom: 1px solid #181818;
   cursor: pointer;
   transition: background 0.1s;
+  overflow: visible;
 }
 
 .studio-loop-strip:hover {
@@ -726,10 +727,8 @@
 }
 
 .tooltip-content {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
+  position: fixed;
+  transform: translate(-50%, calc(-100% - 6px));
   background: #1a1a1a;
   border: 1px solid #2a2a2a;
   color: #888888;
@@ -738,13 +737,7 @@
   padding: 3px 8px;
   white-space: nowrap;
   pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.1s 0.3s;
-  z-index: 100;
-}
-
-.tooltip-wrapper:hover .tooltip-content {
-  opacity: 1;
+  z-index: 1000;
 }
 
 /* Loops drag handle */

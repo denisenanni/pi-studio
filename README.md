@@ -21,7 +21,7 @@ Pi Studio is two tools in one:
 
 | Tab | Description |
 |-----|-------------|
-| Samples | All 196 built-in Sonic Pi samples organised by category. Click a cell to play; adjust Rate and Amp with sliders. |
+| Samples | All 196 built-in Sonic Pi samples organized by category. Click a cell to play; adjust Rate and Amp with sliders. |
 | Chords | All Sonic Pi chords. Pick root note, octave, and number of octaves; play as a block or arpeggio. |
 | Scales | ~130 Sonic Pi scales. Pick root note and octave; hear the scale played ascending. |
 | FX | Pick a sample, select an FX from the grid, and hear it loop through that effect. Adjust Mix, Amp, and per-FX params live. |
@@ -94,7 +94,7 @@ src/
 │   ├── ParamsBar.tsx     — per-note param controls (ADSR, filter, modulation, FX, mixer)
 │   ├── Transport.tsx     — BPM, time signature, play/stop, export
 │   ├── CodeOutput.tsx    — live generated Sonic Pi code panel
-│   ├── WaveformStrip.tsx — waveform visualisation strip
+│   ├── WaveformStrip.tsx — waveform visualization strip
 │   ├── Tooltip.tsx       — shared tooltip component
 │   ├── codeGen.ts        — Sonic Pi code generation from Studio state
 │   ├── usePlayback.ts    — Studio playback engine (Tone.js + SuperSonic, lazy-loaded)

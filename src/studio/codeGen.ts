@@ -67,94 +67,149 @@ const RES_SYNTHS = new Set(['prophet', 'tb303', 'hollow', 'dark_ambience', 'blad
 
 // ── Synth loop body ────────────────────────────────────────
 
+// Emit one synth call line for a note (no leading indent — caller adds it)
+function buildNoteLines(note: StudioNote, loop: StudioLoop, stepDur: number): string {
+  const noteName = midiToNoteName(note.note)
+  const durBeats = formatBeat(note.duration * stepDur)
+  const ampFixed = parseFloat((note.velocity * getEffectiveParam(note, loop, 'amp')).toFixed(2))
+  const cutoffFixed  = getEffectiveParam(note, loop, 'cutoff')
+  const resFixed     = getEffectiveParam(note, loop, 'res')
+  const attackFixed  = getEffectiveParam(note, loop, 'attack')
+  const decayFixed   = getEffectiveParam(note, loop, 'decay')
+  const sustainFixed = getEffectiveParam(note, loop, 'sustain')
+  const releaseFixed = getEffectiveParam(note, loop, 'release')
+  const panFixed     = getEffectiveParam(note, loop, 'pan')
+
+  const cutoffStr  = resolveParam('cutoff',  note, loop, cutoffFixed)
+  const resStr     = resolveParam('res',     note, loop, resFixed)
+  const attackStr  = resolveParam('attack',  note, loop, attackFixed)
+  const decayStr   = resolveParam('decay',   note, loop, decayFixed)
+  const sustainStr = resolveParam('sustain', note, loop, sustainFixed)
+  const panStr     = resolveParam('pan',     note, loop, panFixed)
+
+  const ampRrand = note.rrandParams['amp'] ?? loop.rrandParams['amp']
+  const ampStr = ampRrand
+    ? `rrand(${formatBeat(note.velocity * ampRrand[0])}, ${formatBeat(note.velocity * ampRrand[1])})`
+    : String(ampFixed)
+
+  const synthParams: string[] = [`note: :${noteName}`]
+  synthParams.push(`amp: ${ampStr}`)
+
+  const isRrandCutoff = 'cutoff' in note.rrandParams || 'cutoff' in loop.rrandParams
+  if (isRrandCutoff || cutoffFixed !== PARAM_DEFAULTS['cutoff']) synthParams.push(`cutoff: ${cutoffStr}`)
+
+  if (RES_SYNTHS.has(loop.synth)) {
+    const isRrandRes = 'res' in note.rrandParams || 'res' in loop.rrandParams
+    if (isRrandRes || resFixed !== PARAM_DEFAULTS['res']) synthParams.push(`res: ${resStr}`)
+  }
+
+  const isRrandAttack = 'attack' in note.rrandParams || 'attack' in loop.rrandParams
+  if (isRrandAttack || attackFixed !== PARAM_DEFAULTS['attack']) synthParams.push(`attack: ${attackStr}`)
+
+  const isRrandDecay = 'decay' in note.rrandParams || 'decay' in loop.rrandParams
+  if (isRrandDecay || decayFixed !== PARAM_DEFAULTS['decay']) synthParams.push(`decay: ${decayStr}`)
+
+  const isRrandSustain = 'sustain' in note.rrandParams || 'sustain' in loop.rrandParams
+  if (isRrandSustain || sustainFixed !== PARAM_DEFAULTS['sustain']) synthParams.push(`sustain: ${sustainStr}`)
+
+  const isRrandRelease = 'release' in note.rrandParams || 'release' in loop.rrandParams
+  const releaseBeats = isRrandRelease
+    ? resolveParam('release', note, loop, releaseFixed)
+    : note.params['release'] !== undefined ? formatBeat(releaseFixed) : durBeats
+  synthParams.push(`release: ${releaseBeats}`)
+
+  const isRrandPan = 'pan' in note.rrandParams || 'pan' in loop.rrandParams
+  if (isRrandPan || panFixed !== PARAM_DEFAULTS['pan']) synthParams.push(`pan: ${panStr}`)
+
+  return `synth :${loop.synth}, ${synthParams.join(', ')}`
+}
+
+// Emit notes within [startStep, endStep] with cursor tracking; indent each line with `indent`
+function emitNoteRange(
+  notes: StudioNote[],
+  loop: StudioLoop,
+  stepDur: number,
+  startStep: number,
+  endStep: number,
+  indent: string,
+): string[] {
+  const lines: string[] = []
+  const inRange = notes.filter((n) => n.step >= startStep && n.step <= endStep)
+  let cursor = startStep
+
+  for (const note of inRange) {
+    if (note.step > cursor) {
+      lines.push(`${indent}sleep ${formatBeat((note.step - cursor) * stepDur)}`)
+    }
+    lines.push(`${indent}${buildNoteLines(note, loop, stepDur)}`)
+    cursor = note.step + 1
+  }
+
+  // Sleep to end of range
+  if (cursor <= endStep) {
+    lines.push(`${indent}sleep ${formatBeat((endStep - cursor + 1) * stepDur)}`)
+  }
+
+  return lines
+}
+
 function buildSynthBody(loop: StudioLoop, timeSignature: [number, number]): string[] {
   const lines: string[] = []
   const stepDur = stepDuration(loop, timeSignature)
+  const totalSteps = loop.steps * loop.bars
 
-  if (loop.notes.length === 0) {
-    // Emit a rest for the full loop duration so it stays in sync
+  if (loop.notes.length === 0 && loop.repeatGroups.length === 0) {
     const totalBeats = timeSignature[0] * loop.bars
     lines.push(`  sleep ${formatBeat(totalBeats)}`)
     return lines
   }
 
-  // Sort notes by step, then emit each with a sleep to the next note (or loop end)
   const sorted = [...loop.notes].sort((a, b) => a.step - b.step)
+  const groups = [...loop.repeatGroups].sort((a, b) => a.startStep - b.startStep)
+
   let cursor = 0
 
-  for (let i = 0; i < sorted.length; i++) {
-    const note = sorted[i]
+  for (const group of groups) {
+    // Emit normal notes before this group
+    const beforeNotes = sorted.filter(
+      (n) => n.step >= cursor && n.step < group.startStep
+    )
+    for (const note of beforeNotes) {
+      if (note.step > cursor) {
+        lines.push(`  sleep ${formatBeat((note.step - cursor) * stepDur)}`)
+      }
+      lines.push(`  ${buildNoteLines(note, loop, stepDur)}`)
+      cursor = note.step + 1
+    }
 
-    // Sleep to this note's start if there's a gap
+    // Sleep gap between last note and group start
+    if (cursor < group.startStep) {
+      lines.push(`  sleep ${formatBeat((group.startStep - cursor) * stepDur)}`)
+    }
+
+    // Emit the repeat block
+    lines.push(`  ${group.count}.times do`)
+    const innerNotes = sorted.filter(
+      (n) => n.step >= group.startStep && n.step <= group.endStep
+    )
+    const innerLines = emitNoteRange(innerNotes, loop, stepDur, group.startStep, group.endStep, '    ')
+    lines.push(...innerLines)
+    lines.push(`  end`)
+
+    cursor = group.endStep + 1
+  }
+
+  // Emit remaining notes after last group
+  const afterNotes = sorted.filter((n) => n.step >= cursor)
+  for (const note of afterNotes) {
     if (note.step > cursor) {
       lines.push(`  sleep ${formatBeat((note.step - cursor) * stepDur)}`)
     }
-
-    const noteName = midiToNoteName(note.note)
-    const durBeats = formatBeat(note.duration * stepDur)
-    const ampFixed = parseFloat((note.velocity * getEffectiveParam(note, loop, 'amp')).toFixed(2))
-    const cutoffFixed  = getEffectiveParam(note, loop, 'cutoff')
-    const resFixed     = getEffectiveParam(note, loop, 'res')
-    const attackFixed  = getEffectiveParam(note, loop, 'attack')
-    const decayFixed   = getEffectiveParam(note, loop, 'decay')
-    const sustainFixed = getEffectiveParam(note, loop, 'sustain')
-    const releaseFixed = getEffectiveParam(note, loop, 'release')
-    const panFixed     = getEffectiveParam(note, loop, 'pan')
-
-    // Resolve each param — may be fixed value or rrand(min, max)
-    const cutoffStr  = resolveParam('cutoff',  note, loop, cutoffFixed)
-    const resStr     = resolveParam('res',     note, loop, resFixed)
-    const attackStr  = resolveParam('attack',  note, loop, attackFixed)
-    const decayStr   = resolveParam('decay',   note, loop, decayFixed)
-    const sustainStr = resolveParam('sustain', note, loop, sustainFixed)
-    const panStr     = resolveParam('pan',     note, loop, panFixed)
-
-    // amp: rrand applies to amp param, then multiply by velocity
-    const ampRrand = note.rrandParams['amp'] ?? loop.rrandParams['amp']
-    const ampStr = ampRrand
-      ? `rrand(${formatBeat(note.velocity * ampRrand[0])}, ${formatBeat(note.velocity * ampRrand[1])})`
-      : String(ampFixed)
-
-    // Build param list — only include values that differ from their defaults
-    const synthParams: string[] = [`note: :${noteName}`]
-    // amp is always included
-    synthParams.push(`amp: ${ampStr}`)
-
-    const cutoffDefault = PARAM_DEFAULTS['cutoff']
-    const isRrandCutoff = 'cutoff' in note.rrandParams || 'cutoff' in loop.rrandParams
-    if (isRrandCutoff || cutoffFixed !== cutoffDefault) synthParams.push(`cutoff: ${cutoffStr}`)
-
-    if (RES_SYNTHS.has(loop.synth)) {
-      const isRrandRes = 'res' in note.rrandParams || 'res' in loop.rrandParams
-      if (isRrandRes || resFixed !== PARAM_DEFAULTS['res']) synthParams.push(`res: ${resStr}`)
-    }
-
-    const isRrandAttack = 'attack' in note.rrandParams || 'attack' in loop.rrandParams
-    if (isRrandAttack || attackFixed !== PARAM_DEFAULTS['attack']) synthParams.push(`attack: ${attackStr}`)
-
-    const isRrandDecay = 'decay' in note.rrandParams || 'decay' in loop.rrandParams
-    if (isRrandDecay || decayFixed !== PARAM_DEFAULTS['decay']) synthParams.push(`decay: ${decayStr}`)
-
-    const isRrandSustain = 'sustain' in note.rrandParams || 'sustain' in loop.rrandParams
-    if (isRrandSustain || sustainFixed !== PARAM_DEFAULTS['sustain']) synthParams.push(`sustain: ${sustainStr}`)
-
-    // release: use note duration unless overridden or rrand
-    const isRrandRelease = 'release' in note.rrandParams || 'release' in loop.rrandParams
-    const releaseBeats = isRrandRelease
-      ? resolveParam('release', note, loop, releaseFixed)
-      : note.params['release'] !== undefined ? formatBeat(releaseFixed) : durBeats
-    synthParams.push(`release: ${releaseBeats}`)
-
-    const isRrandPan = 'pan' in note.rrandParams || 'pan' in loop.rrandParams
-    if (isRrandPan || panFixed !== PARAM_DEFAULTS['pan']) synthParams.push(`pan: ${panStr}`)
-
-    lines.push(`  synth :${loop.synth}, ${synthParams.join(', ')}`)
-
+    lines.push(`  ${buildNoteLines(note, loop, stepDur)}`)
     cursor = note.step + 1
   }
 
   // Sleep to end of loop
-  const totalSteps = loop.steps * loop.bars
   if (cursor < totalSteps) {
     lines.push(`  sleep ${formatBeat((totalSteps - cursor) * stepDur)}`)
   }

@@ -20,6 +20,13 @@ export type StudioNote = {
   rrandParams: Record<string, RrandRange> // per-note rrand overrides; key → [min, max]
 }
 
+export type RepeatGroup = {
+  id: string
+  startStep: number  // first step of the group (inclusive)
+  endStep: number    // last step of the group (inclusive)
+  count: number      // N in N.times, range 2–8
+}
+
 export type StudioLoop = {
   id: string
   name: string           // e.g. "melody"
@@ -36,6 +43,7 @@ export type StudioLoop = {
   rrandParams: Record<string, RrandRange> // loop-level rrand; key → [min, max]
   stepParams: Record<number, Record<string, number>>           // sample: per-step param overrides
   stepRrandParams: Record<number, Record<string, RrandRange>>  // sample: per-step rrand
+  repeatGroups: RepeatGroup[]  // synth loops only
   syncMode: SyncMode     // default: 'auto'
   syncTarget: string | null // loop name to sync to (only used when syncMode === 'sync_to')
 }

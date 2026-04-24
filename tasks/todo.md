@@ -867,3 +867,41 @@
 **`src/studio/studio.css`** — Added `.studio-param-rrand-toggle` (inactive=grey, active=accent), `.studio-param-rrand-range`/`.studio-param-rrand-row`/`.studio-param-rrand-label` for dual-slider layout, `.studio-step-dot` absolute indicator, `.studio-sample-step-btn.selected` outline highlight, `.studio-step-params` panel styles.
 
 **Build:** `yarn build` passes with zero TypeScript errors. No `any`.
+
+---
+
+## Task 33 — Repeat (N.times) for Note Groups
+
+### Plan
+
+**Types (`types.ts`):**
+- [x] 1. Add `RepeatGroup` type: `{ id, startStep, endStep, count }`
+- [x] 2. Add `repeatGroups: RepeatGroup[]` to `StudioLoop`
+
+**StudioPage (`StudioPage.tsx`):**
+- [x] 3. Add `repeatGroups: []` to `PLACEHOLDER_LOOPS` and `handleAddLoop`
+- [x] 4. Add `handleAddRepeatGroup(loopId, group)` → pushUndo
+- [x] 5. Add `handleRemoveRepeatGroup(loopId, groupId)` → pushUndo
+- [x] 6. Add `handleSetRepeatCount(loopId, groupId, count)` → pushUndo
+- [x] 7. Pass new handlers to `DetailPanel`
+
+**DetailPanel (`DetailPanel.tsx`):**
+- [x] 8. Added `selectedNoteIds: string[]` local state alongside existing `selectedNoteId`
+- [x] 9. Shift-click extends selection; plain click replaces; Escape clears all
+- [x] 10. Added `onAddRepeatGroup`, `onRemoveRepeatGroup`, `onSetRepeatCount` to `DetailPanelProps`
+- [x] 11. Right-click with 2+ selected → context menu "Repeat ×2"; single note right-click → delete (existing)
+- [x] 12. Context menu `position: fixed`; close on outside mousedown
+- [x] 13. `RepeatGroupOverlay` rendered inside piano roll grid, above note blocks
+- [x] 14. `RepeatGroupOverlay`: `×` remove button top-left, `×N` badge top-right (click to edit inline number input)
+- [x] 15. `R` keyboard shortcut creates group from selected notes; hint updated in detail header
+
+**Code generation (`codeGen.ts`):**
+- [x] 16. Extracted `buildNoteLines` + `emitNoteRange` helpers; `buildSynthBody` walks groups in order, emits `N.times do ... end` with relative sleeps
+- [x] 17. Notes outside group boundaries emitted normally; empty groups emit `sleep X` inside block
+
+**CSS (`studio.css`):**
+- [x] 18. `.studio-repeat-bracket` (absolute overlay, accent border, rounded corners, z-index 10)
+- [x] 19. `.studio-repeat-badge` (green pill top-right, click to edit count)
+- [x] 20. `.studio-repeat-remove` (grey × top-left, hover white)
+- [x] 21. `.studio-context-menu` + `.studio-context-menu-item` (`position: fixed`, dark panel)
+- [x] 22. `.studio-note-block.multi-selected` (dark green tint)

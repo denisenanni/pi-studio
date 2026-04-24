@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import './studio.css'
-import type { StudioState, StudioLoop, StudioNote, StudioSnapshot, LoopType, SyncMode, FxChainEntry, RrandRange } from './types'
+import type { StudioState, StudioLoop, StudioNote, StudioSnapshot, LoopType, SyncMode, FxChainEntry, RrandRange, RepeatGroup } from './types'
 
 // Default param values — used to merge with per-loop params for ParamsBar display
 const PARAM_DEFAULTS: Record<string, number> = {
@@ -109,6 +109,7 @@ const PLACEHOLDER_LOOPS: StudioLoop[] = [
     rrandParams: {},
     stepParams: {},
     stepRrandParams: {},
+    repeatGroups: [],
     syncMode: 'auto',
     syncTarget: null,
   },
@@ -128,6 +129,7 @@ const PLACEHOLDER_LOOPS: StudioLoop[] = [
     rrandParams: {},
     stepParams: {},
     stepRrandParams: {},
+    repeatGroups: [],
     syncMode: 'auto',
     syncTarget: null,
   },
@@ -152,6 +154,7 @@ const PLACEHOLDER_LOOPS: StudioLoop[] = [
     rrandParams: {},
     stepParams: {},
     stepRrandParams: {},
+    repeatGroups: [],
     syncMode: 'auto',
     syncTarget: null,
   },
@@ -425,6 +428,7 @@ export function StudioPage() {
         rrandParams: {},
         stepParams: {},
         stepRrandParams: {},
+        repeatGroups: [],
         syncMode: 'auto',
         syncTarget: null,
       }
@@ -612,6 +616,38 @@ export function StudioPage() {
         else stepEntry[key] = range
         return { ...l, stepRrandParams: { ...l.stepRrandParams, [step]: stepEntry } }
       }),
+    }))
+  }, [pushUndo])
+
+  // ── Repeat group handlers ─────────────────────────────────
+
+  const handleAddRepeatGroup = useCallback((loopId: string, group: RepeatGroup) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) =>
+        l.id !== loopId ? l : { ...l, repeatGroups: [...l.repeatGroups, group] }
+      ),
+    }))
+  }, [pushUndo])
+
+  const handleRemoveRepeatGroup = useCallback((loopId: string, groupId: string) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) =>
+        l.id !== loopId ? l : { ...l, repeatGroups: l.repeatGroups.filter((g) => g.id !== groupId) }
+      ),
+    }))
+  }, [pushUndo])
+
+  const handleSetRepeatCount = useCallback((loopId: string, groupId: string, count: number) => {
+    setState((s) => ({
+      ...pushUndo(s),
+      loops: s.loops.map((l) =>
+        l.id !== loopId ? l : {
+          ...l,
+          repeatGroups: l.repeatGroups.map((g) => g.id === groupId ? { ...g, count } : g),
+        }
+      ),
     }))
   }, [pushUndo])
 
@@ -844,6 +880,9 @@ export function StudioPage() {
             onSetStepParam={handleSetStepParam}
             onClearStepParam={handleClearStepParam}
             onSetStepRrand={handleSetStepRrand}
+            onAddRepeatGroup={handleAddRepeatGroup}
+            onRemoveRepeatGroup={handleRemoveRepeatGroup}
+            onSetRepeatCount={handleSetRepeatCount}
           />
 
           <ParamsBar

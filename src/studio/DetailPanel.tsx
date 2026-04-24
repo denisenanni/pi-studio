@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useMemo, useEffect, memo } from "react";
 import { Tooltip } from "./Tooltip";
-import type { StudioLoop, StudioNote, SyncMode, FxChainEntry, RrandRange } from "./types";
+import type { StudioLoop, StudioNote, SyncMode, FxChainEntry, RrandRange, RepeatGroup } from "./types";
 import { ensureToneLoaded, getTone } from "./usePlayback";
 import { SCALES } from "../data/scales";
 import { SYNTHS } from "../data/synths";
@@ -174,6 +174,9 @@ interface DetailPanelProps {
   onSetStepParam: (loopId: string, step: number, key: string, value: number) => void;
   onClearStepParam: (loopId: string, step: number, key: string) => void;
   onSetStepRrand: (loopId: string, step: number, key: string, range: RrandRange | null) => void;
+  onAddRepeatGroup: (loopId: string, group: RepeatGroup) => void;
+  onRemoveRepeatGroup: (loopId: string, groupId: string) => void;
+  onSetRepeatCount: (loopId: string, groupId: string, count: number) => void;
 }
 
 // ── DetailPanel ──────────────────────────────────────────────────────────────
@@ -207,6 +210,9 @@ export function DetailPanel({
   onSetStepParam,
   onClearStepParam,
   onSetStepRrand,
+  onAddRepeatGroup,
+  onRemoveRepeatGroup,
+  onSetRepeatCount,
 }: DetailPanelProps) {
   const [fxDropdownOpen, setFxDropdownOpen] = useState(false);
   const fxDropdownRef = useRef<HTMLDivElement>(null);
@@ -230,6 +236,29 @@ export function DetailPanel({
   const cancelDragRef = useRef<(() => void) | null>(null);
   const velBarRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
+
+  // ── Multi-select (local UI state only) ───────────────────
+  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
+
+  // ── Context menu ──────────────────────────────────────────
+  type ContextMenu = { x: number; y: number } | null;
+  const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  // ── Repeat badge editing ──────────────────────────────────
+  const [editingRepeatId, setEditingRepeatId] = useState<string | null>(null);
+
+  // Close context menu on outside click
+  useEffect(() => {
+    if (!contextMenu) return;
+    function onDown(e: MouseEvent) {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [contextMenu]);
 
   const steps = loop?.steps ?? 16;
   const notes = useMemo(() => loop?.notes ?? [], [loop?.notes]);
@@ -268,10 +297,36 @@ export function DetailPanel({
         if (dragRef.current.type !== "none") {
           cancelDragRef.current?.();
         } else {
+          setSelectedNoteIds([]);
+          setContextMenu(null);
           onSelectNote(null);
         }
         return;
       }
+
+      // R — create repeat group from selected notes
+      if (e.key === "r" || e.key === "R") {
+        if (!loop || selectedNoteIds.length < 2) return;
+        const selNotes = notes.filter((n) => selectedNoteIds.includes(n.id));
+        const minStep = Math.min(...selNotes.map((n) => n.step));
+        const maxStep = Math.max(...selNotes.map((n) => n.step));
+        if (maxStep <= minStep) return;
+        // Check no overlap with existing groups
+        const overlaps = loop.repeatGroups.some(
+          (g) => !(g.endStep < minStep || g.startStep > maxStep)
+        );
+        if (overlaps) return;
+        const group: RepeatGroup = {
+          id: crypto.randomUUID(),
+          startStep: minStep,
+          endStep: maxStep,
+          count: 2,
+        };
+        onAddRepeatGroup(loop.id, group);
+        setSelectedNoteIds([]);
+        return;
+      }
+
       if (!loop || !selectedNoteId) return;
       const note = notes.find((n) => n.id === selectedNoteId);
       if (!note) return;
@@ -312,6 +367,7 @@ export function DetailPanel({
     [
       loop,
       selectedNoteId,
+      selectedNoteIds,
       notes,
       steps,
       scaleLock,
@@ -320,6 +376,7 @@ export function DetailPanel({
       onDeleteNote,
       onMoveNote,
       onSelectNote,
+      onAddRepeatGroup,
     ],
   );
 
@@ -359,16 +416,23 @@ export function DetailPanel({
     [loop, steps, scaleLock, rootIdx, scaleClasses, onAddNote, onSelectNote],
   );
 
-  // ── Note: right-click deletes ─────────────────────────────
+  // ── Note: right-click → context menu ─────────────────────
   const handleNoteContextMenu = useCallback(
     (e: React.MouseEvent, note: StudioNote) => {
       e.preventDefault();
       e.stopPropagation();
       if (!loop) return;
-      onDeleteNote(loop.id, note.id);
-      if (selectedNoteId === note.id) onSelectNote(null);
+      // If only one note selected (or right-clicked on unselected), just delete
+      const ids = selectedNoteIds.includes(note.id) ? selectedNoteIds : [note.id];
+      if (ids.length < 2) {
+        onDeleteNote(loop.id, note.id);
+        if (selectedNoteId === note.id) onSelectNote(null);
+        return;
+      }
+      // Multi-select: show context menu
+      setContextMenu({ x: e.clientX, y: e.clientY });
     },
-    [loop, selectedNoteId, onDeleteNote, onSelectNote],
+    [loop, selectedNoteId, selectedNoteIds, onDeleteNote, onSelectNote],
   );
 
   // ── Note: mousedown → select + start move/resize drag ────
@@ -378,6 +442,19 @@ export function DetailPanel({
       if (e.button !== 0) return;
       if (!loop) return;
 
+      // Shift-click: toggle note in multi-select set
+      if (e.shiftKey) {
+        setSelectedNoteIds((prev) =>
+          prev.includes(note.id)
+            ? prev.filter((id) => id !== note.id)
+            : [...prev, note.id]
+        );
+        onSelectNote(note.id);
+        return;
+      }
+
+      // Plain click: replace selection
+      setSelectedNoteIds([note.id]);
       onSelectNote(note.id);
 
       const noteRect = e.currentTarget.getBoundingClientRect();
@@ -771,7 +848,7 @@ export function DetailPanel({
         </div>
 
         <span className="studio-detail-hint">
-          click · right-click to delete · drag to move
+          click · right-click to delete · shift-click to multi-select · R to repeat group
         </span>
       </div>
 
@@ -855,11 +932,26 @@ export function DetailPanel({
                     key={note.id}
                     note={note}
                     isSelected={note.id === selectedNoteId}
+                    isMultiSelected={selectedNoteIds.includes(note.id)}
                     dragPreview={
                       dragPreview?.noteId === note.id ? dragPreview : null
                     }
                     onMouseDown={handleNoteMouseDown}
                     onContextMenu={handleNoteContextMenu}
+                  />
+                ))}
+
+                {/* Repeat group overlays */}
+                {(loop?.repeatGroups ?? []).map((group) => (
+                  <RepeatGroupOverlay
+                    key={group.id}
+                    group={group}
+                    steps={steps}
+                    gridWidth={gridWidth}
+                    editingId={editingRepeatId}
+                    onSetEditingId={setEditingRepeatId}
+                    onSetCount={(count) => loop && onSetRepeatCount(loop.id, group.id, count)}
+                    onRemove={() => loop && onRemoveRepeatGroup(loop.id, group.id)}
                   />
                 ))}
 
@@ -885,6 +977,41 @@ export function DetailPanel({
             onVelMouseDown={handleVelMouseDown}
           />
         </>
+      )}
+
+      {/* Context menu (fixed position, escapes overflow) */}
+      {contextMenu && (
+        <div
+          ref={contextMenuRef}
+          className="studio-context-menu"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <button
+            className="studio-context-menu-item"
+            onClick={() => {
+              if (!loop) return;
+              const selNotes = notes.filter((n) => selectedNoteIds.includes(n.id));
+              if (selNotes.length < 2) return;
+              const minStep = Math.min(...selNotes.map((n) => n.step));
+              const maxStep = Math.max(...selNotes.map((n) => n.step));
+              const overlaps = loop.repeatGroups.some(
+                (g) => !(g.endStep < minStep || g.startStep > maxStep)
+              );
+              if (!overlaps) {
+                onAddRepeatGroup(loop.id, {
+                  id: crypto.randomUUID(),
+                  startStep: minStep,
+                  endStep: maxStep,
+                  count: 2,
+                });
+              }
+              setSelectedNoteIds([]);
+              setContextMenu(null);
+            }}
+          >
+            Repeat ×2
+          </button>
+        </div>
       )}
     </div>
   );
@@ -1144,6 +1271,7 @@ function SampleLoopView({
 interface NoteBlockProps {
   note: StudioNote;
   isSelected: boolean;
+  isMultiSelected: boolean;
   dragPreview: DragPreview | null;
   onMouseDown: (e: React.MouseEvent, note: StudioNote) => void;
   onContextMenu: (e: React.MouseEvent, note: StudioNote) => void;
@@ -1152,6 +1280,7 @@ interface NoteBlockProps {
 const NoteBlock = memo(function NoteBlock({
   note,
   isSelected,
+  isMultiSelected,
   dragPreview,
   onMouseDown,
   onContextMenu,
@@ -1167,7 +1296,12 @@ const NoteBlock = memo(function NoteBlock({
   const left = step * STEP_WIDTH;
   const width = duration * STEP_WIDTH - 2;
 
-  const className = `studio-note-block${isSelected ? " selected" : ""}${dragPreview ? " dragging" : ""}`;
+  const className = [
+    "studio-note-block",
+    isSelected ? "selected" : "",
+    isMultiSelected && !isSelected ? "multi-selected" : "",
+    dragPreview ? "dragging" : "",
+  ].filter(Boolean).join(" ");
 
   return (
     <div
@@ -1185,6 +1319,73 @@ const NoteBlock = memo(function NoteBlock({
     </div>
   );
 });
+
+// ── RepeatGroupOverlay ────────────────────────────────────────────────────────
+
+interface RepeatGroupOverlayProps {
+  group: RepeatGroup;
+  steps: number;
+  gridWidth: number;
+  editingId: string | null;
+  onSetEditingId: (id: string | null) => void;
+  onSetCount: (count: number) => void;
+  onRemove: () => void;
+}
+
+function RepeatGroupOverlay({
+  group,
+  steps,
+  gridWidth,
+  editingId,
+  onSetEditingId,
+  onSetCount,
+  onRemove,
+}: RepeatGroupOverlayProps) {
+  const spanSteps = group.endStep - group.startStep + 1;
+  const left = (group.startStep / steps) * gridWidth;
+  const width = (spanSteps / steps) * gridWidth;
+  const isEditing = editingId === group.id;
+
+  return (
+    <div
+      className="studio-repeat-bracket"
+      style={{ left, width }}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <Tooltip text="Remove repeat group">
+        <button className="studio-repeat-remove" onClick={onRemove}>×</button>
+      </Tooltip>
+      <Tooltip text="Click to change repeat count">
+        {isEditing ? (
+          <input
+            className="studio-repeat-count-input"
+            type="number"
+            min={2}
+            max={8}
+            defaultValue={group.count}
+            autoFocus
+            onBlur={(e) => {
+              const v = Math.min(8, Math.max(2, parseInt(e.target.value, 10) || 2));
+              onSetCount(v);
+              onSetEditingId(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              if (e.key === "Escape") onSetEditingId(null);
+            }}
+          />
+        ) : (
+          <button
+            className="studio-repeat-badge"
+            onClick={() => onSetEditingId(group.id)}
+          >
+            ×{group.count}
+          </button>
+        )}
+      </Tooltip>
+    </div>
+  );
+}
 
 // ── VelocityLane ─────────────────────────────────────────────────────────────
 

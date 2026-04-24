@@ -6,13 +6,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pi Studio</title>
     <script>
-      const redirect = sessionStorage.getItem('spa-redirect');
-      if (redirect && redirect !== '/') {
-        sessionStorage.removeItem('spa-redirect');
-        window.history.replaceState(null, '', '/pi-studio' + redirect);
+      const redirect = sessionStorage.getItem("spa-redirect");
+      if (redirect && redirect !== "/") {
+        sessionStorage.removeItem("spa-redirect");
+        window.history.replaceState(null, "", "/pi-studio" + redirect);
       }
     </script>
-    <script type="module" crossorigin src="/pi-studio/assets/index-CIkeVKEZ.js"></script>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-K97J8BFV5S"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+      gtag("config", "G-K97J8BFV5S");
+    </script>
+    <script type="module" crossorigin src="/pi-studio/assets/index--T10Jyhu.js"></script>
     <link rel="modulepreload" crossorigin href="/pi-studio/assets/chunk-DECur_0Z.js">
     <link rel="modulepreload" crossorigin href="/pi-studio/assets/jsx-runtime-Ccff3b0D.js">
     <link rel="modulepreload" crossorigin href="/pi-studio/assets/react-DYpzXrK8.js">

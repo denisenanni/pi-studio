@@ -905,3 +905,23 @@
 - [x] 20. `.studio-repeat-remove` (grey × top-left, hover white)
 - [x] 21. `.studio-context-menu` + `.studio-context-menu-item` (`position: fixed`, dark panel)
 - [x] 22. `.studio-note-block.multi-selected` (dark green tint)
+
+---
+
+## Task 34 — Fix Dead Studio Link on Landing Page
+
+### Plan
+
+- [x] 1. Find the "Studio — Coming Soon" link/button in `src/components/LandingPage.tsx`
+- [x] 2. Replace the dead/disabled link with a working `<Link to="/studio">` pointing to `/pi-studio/studio`
+- [x] 3. Remove the "coming soon" badge/text
+- [x] 4. Verify build passes
+
+### Review
+
+**Files modified:**
+
+- `src/components/LandingPage.tsx` — replaced `<span className="landing-btn-disabled">Studio — coming soon</span>` with `<Link className="landing-btn-secondary" to="/studio">Open Studio →</Link>` in the hero CTA row; removed the `<span className="landing-badge">coming soon</span>` from the Studio section header.
+- `src/index.css` — replaced `.landing-btn-disabled` with `.landing-btn-secondary` (adds `text-decoration: none`, hover transition to `#cccccc` text and `#888888` border); updated mobile breakpoint class reference to match.
+
+**Build:** `yarn build` passes with zero TypeScript errors.

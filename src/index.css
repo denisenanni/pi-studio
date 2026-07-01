@@ -1507,7 +1507,7 @@ kbd {
   bottom: 32px;
   left: 50%;
   transform: translateX(-50%);
-  color: #444444;
+  color: #888888;
   font-size: 20px;
   line-height: 1;
   pointer-events: none;
@@ -1587,16 +1587,6 @@ kbd {
   color: #111111;
 }
 
-.landing-btn-disabled {
-  display: inline-block;
-  padding: 12px 28px;
-  border: 1px solid #444444;
-  color: #555555;
-  font-family: inherit;
-  font-size: 14px;
-  cursor: default;
-  user-select: none;
-}
 
 /* What is Sonic Pi */
 
@@ -1787,8 +1777,7 @@ kbd {
     align-items: stretch;
     gap: 12px;
   }
-  .landing-btn-primary,
-  .landing-btn-disabled {
+  .landing-btn-primary {
     text-align: center;
   }
 

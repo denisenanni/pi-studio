@@ -37,7 +37,7 @@ export function LandingPage() {
 
   useEffect(() => {
     const onScroll = () => {
-      if (window.scrollY > 60) setScrolled(true);
+      setScrolled(window.scrollY > 60);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -60,7 +60,9 @@ export function LandingPage() {
             <Link className="landing-btn-primary" to="/browser">
               Open Browser →
             </Link>
-            <span className="landing-btn-disabled">Studio — coming soon</span>
+            <Link className="landing-btn-primary" to="/studio">
+              Open Studio →
+            </Link>
           </div>
         </div>
         <div
@@ -117,7 +119,6 @@ export function LandingPage() {
       <section className="landing-studio">
         <div className="landing-studio-header">
           <h2 className="landing-section-title landing-studio-title">Studio</h2>
-          <span className="landing-badge">coming soon</span>
         </div>
         <p className="landing-studio-lead">Build Sonic Pi code visually.</p>
         <p className="landing-studio-desc">
@@ -126,6 +127,9 @@ export function LandingPage() {
           then export a ready-to-run <code>.rb</code> file directly into Sonic
           Pi.
         </p>
+        <Link className="landing-btn-primary" to="/studio">
+          Open Studio →
+        </Link>
       </section>
 
       {/* ── Section 5: Footer ─────────────────────────────── */}
@@ -134,7 +138,7 @@ export function LandingPage() {
           Pi Studio — built with React, Tone.js and{" "}
           <a
             className="landing-link"
-            href="https://github.com/sonic-pi-net/sonic-pi"
+            href="https://github.com/samaaron/supersonic"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -164,7 +168,7 @@ export function LandingPage() {
           </a>
           <a
             className="landing-link"
-            href="https://github.com/sonic-pi-net/sonic-pi"
+            href="https://sonic-pi.net/supersonic/demo.html"
             target="_blank"
             rel="noopener noreferrer"
           >

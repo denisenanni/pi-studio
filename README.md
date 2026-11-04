@@ -157,6 +157,14 @@ yarn build
 
 The app deploys automatically to GitHub Pages on every push to `main` via `.github/workflows/deploy.yml`. The base path is set in `vite.config.ts`.
 
+## Roadmap
+
+- Test and finish loop sync modes and the synth-aware parameter panels (implemented, not yet verified)
+- Unit tests for code generation and undo/redo
+- Save and open projects as files (JSON import/export)
+- Share a composition by link
+- Usable Studio layout on tablet and mobile
+
 ---
 
 ## Attributions & Licensing

@@ -925,3 +925,21 @@
 - `src/index.css` — replaced `.landing-btn-disabled` with `.landing-btn-secondary` (adds `text-decoration: none`, hover transition to `#cccccc` text and `#888888` border); updated mobile breakpoint class reference to match.
 
 **Build:** `yarn build` passes with zero TypeScript errors.
+
+---
+
+## Task 35 — Expand README Roadmap
+
+### Plan
+
+- [x] 1. Rewrite the README `## Roadmap` section into Now / Next / Refactoring / Later / Not planned
+- [x] 2. Add refactoring tasks grounded in the current code (ref-sync hook helper, Studio reducer, DetailPanel split, App state split, duplicate `FxChainEntry`, duplicated MIDI helpers)
+
+### Review
+
+**Files modified:**
+
+- `README.md` — Roadmap section expanded; existing roadmap items kept and regrouped.
+- `tasks/todo.md` — this entry.
+
+Docs only, no code changes.

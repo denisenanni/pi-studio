@@ -159,11 +159,34 @@ The app deploys automatically to GitHub Pages on every push to `main` via `.gith
 
 ## Roadmap
 
+### Now — fixes and safety nets
+- Autosave the Studio composition to localStorage and warn before leaving the page (today a refresh loses all work)
+- Fix the 20 `yarn lint` errors and add a lint step to the deploy workflow so broken code can't ship
+- Unit tests (Vitest) for `codeGen.ts`: sync modes, repeat groups, rrand params, FX chains, plus undo/redo
 - Test and finish loop sync modes and the synth-aware parameter panels (implemented, not yet verified)
-- Unit tests for code generation and undo/redo
+- Reconcile the README with `public/samples/`: either stop tracking the FLACs or document that they're committed
+
+### Next — features
 - Save and open projects as files (JSON import/export)
-- Share a composition by link
-- Usable Studio layout on tablet and mobile
+- Share a composition by link (state compressed into the URL hash, validated on load like an untrusted file)
+- "Copy whole program" button for pasting straight into Sonic Pi
+- Starter templates (basic beat, ambient pad, amen break), also reusable as `codeGen` test fixtures
+
+### Refactoring
+- Shared `useLatestRef` helper for the "mirror a prop into a ref" pattern in `useAudioPlayer`, `useChordPlayer`, `useScalePlayer` and `useFxPlayer` (also clears most lint errors)
+- Move Studio state mutations in `StudioPage.tsx` (~40 `setState` calls) into a typed `useReducer`, which makes undo/redo testable
+- Split `DetailPanel.tsx` (~1,400 lines): move `SampleLoopView`, `NoteBlock`, `RepeatGroupOverlay`, `VelocityLane` and the scale helpers into their own files
+- Split `App.tsx`'s single `AppState` into per-tab state so each tab owns its own settings
+- Rename one of the two unrelated `FxChainEntry` types (`studio/types.ts` vs `hooks/useSuperSonic.ts`)
+- Consolidate the duplicated MIDI/note-name helpers (`utils/midi.ts`, `data/synths.ts`, `ToolsTab`, `DetailPanel`, `useFxPlayer`) into `utils/midi.ts`
+
+### Later
+- Browser tabs usable on mobile; Studio shows a "best on desktop" notice instead of a cramped piano roll
+
+### Not planned
+- Importing `.rb` files into Studio (would mean parsing arbitrary Ruby)
+- Bundling or self-hosting SuperSonic (GPL-3.0; the pinned CDN load is fine)
+- Accounts or a backend (share-by-link covers it for a static site)
 
 ---
 
